@@ -2,8 +2,6 @@
 
 独立 **Key 用量查询** 工具：只读访问已部署 Sub2API 的 PostgreSQL / Redis，不改 Sub2API 代码、配置、环境变量或 compose。
 
-The viewer is one Go process. Its frontend is embedded in the binary. It can run directly on a host or as a container on the same Docker network as Sub2API. It stores no application state beyond optional saved database credentials, and it needs no production Node.js runtime, Redis, Docker, migration, or change to existing Sub2API source. It reads PostgreSQL for all key fields; current concurrency is the exception — it reads the Sub2API Redis instance when `REDIS_HOST` is configured and reports 0 when Redis is unavailable.
-
 ## 功能
 
 | 功能 | 说明 |
@@ -263,17 +261,6 @@ go test -tags=integration ./... -count=1 -timeout=120s
 ```
 
 If Docker is unavailable, these tests report explicit skips outside CI. A skipped database or browser check is not a pass.
-
-## 故障排查
-
-| 现象 | 处理 |
-|------|------|
-| 无 `ready`，`UV-DB-001` | `docker logs sub2api-usage-viewer`；`docker exec sub2api-usage-viewer getent hosts postgres` |
-| 搜索失败 | `curl` `POST /api/search`；确认库有 key 数据；严格角色需含 `api_keys.key` SELECT |
-| `ORIGIN_REJECTED` | 反代未透传 Host，或域名与浏览器不一致 |
-| 并发恒 0 | Redis 未配或不可达 |
-| 凭证表单 | 发现失败；检查 `config.yaml` / 注入 `DATABASE_*` |
-| compose 找不到网络 | `docker network ls`，改 external 网络名 |
 
 ## 卸载
 
