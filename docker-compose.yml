@@ -1,0 +1,57 @@
+# =============================================================================
+# Sub2API Usage Viewer - Standalone Docker Compose
+# =============================================================================
+# Deploys the usage viewer on the same Docker network as Sub2API so it can
+# reach the database through the internal hostname "postgres" without
+# exposing the database port to the host.
+#
+# Prerequisite: the main Sub2API stack must be running so that the external
+# network and the "postgres" hostname exist.
+#
+# Quick Start:
+#   1. cd usage-viewer
+#   2. docker compose up -d --build
+#   3. Access: http://127.0.0.1:8081
+#
+# If the main stack lives in a different directory (not ../), override the
+# password source with: docker compose --env-file <path>/.env up -d --build
+# =============================================================================
+
+services:
+  usage-viewer:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: sub2api-usage-viewer:latest
+    container_name: sub2api-usage-viewer
+    restart: unless-stopped
+    ports:
+      - "${USAGE_VIEWER_PORT:-127.0.0.1:8081}:8081"
+    environment:
+      # 容器内通过 docker 网络直接访问 postgres
+      - DATABASE_HOST=postgres
+      - DATABASE_PORT=5432
+      - DATABASE_USER=${POSTGRES_USER:-sub2api}
+      - DATABASE_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      - DATABASE_DBNAME=${POSTGRES_DB:-sub2api}
+      - DATABASE_SSLMODE=disable
+      # Redis（当前并发读取，来自 sub2api 的 Redis 实例）
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+      - REDIS_DB=${REDIS_DB:-0}
+      # 数据目录（保存用户手动输入的凭证）
+      - SUB2API_USAGE_VIEWER_DATA_DIR=/app/data
+      - SUB2API_USAGE_VIEWER_LISTEN_ADDR=0.0.0.0:8081
+      - SUB2API_USAGE_VIEWER_ACKNOWLEDGE_NON_LOOPBACK=true
+    volumes:
+      - ./data:/app/data:Z
+    networks:
+      - sub2api-network
+
+# The network is created by the main docker-compose.yml (project prefix
+# "sub2api_"), so it must be declared external here.
+networks:
+  sub2api-network:
+    external: true
+    name: sub2api_sub2api-network

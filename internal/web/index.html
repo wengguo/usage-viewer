@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>用量查询</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="stylesheet" href="/app.css">
+</head>
+<body>
+  <header class="app-header">
+    <div class="header-inner">
+      <span>用量查询</span>
+      <a class="settings-link" href="/credentials" title="数据库连接设置" hidden>设置</a>
+    </div>
+  </header>
+
+  <main class="workspace">
+    <div class="search-workspace">
+      <form class="search-form" id="search-form" action="/api/search" method="post" novalidate>
+        <label id="query-label" for="query">Key 名称或 Key</label>
+        <div class="search-row">
+          <input id="query" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="请输入 Key 名称或 Key 值" aria-describedby="search-status">
+          <button id="search-button" type="submit">
+            <span class="spinner" id="search-spinner" aria-hidden="true" hidden></span>
+            <span id="search-button-label">查找</span>
+          </button>
+        </div>
+      </form>
+
+      <div class="status-region" id="search-status" role="status" aria-live="polite"></div>
+
+      <section class="results" id="results" aria-busy="false" hidden>
+        <h2 id="result-count"></h2>
+        <div class="table-scroll" id="table-scroll">
+          <table>
+            <thead><tr>
+              <th scope="col">名称</th>
+              <th scope="col">分组</th>
+              <th scope="col">当前并发</th>
+              <th scope="col">今日用量</th>
+              <th scope="col">近30天用量</th>
+              <th scope="col">额度已用 / 总额度</th>
+              <th scope="col">上次使用时间</th>
+              <th scope="col">过期时间</th>
+              <th scope="col">状态</th>
+              <th scope="col">创建时间</th>
+              <th scope="col">每日用量</th>
+            </tr></thead>
+            <tbody id="key-body"></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <dialog class="usage-dialog" id="usage-dialog">
+    <div class="dialog-header">
+      <h2 id="dialog-title">每日用量</h2>
+      <button class="dialog-close" id="dialog-close" type="button" aria-label="关闭">×</button>
+    </div>
+    <div class="dialog-controls">
+      <label for="dialog-days">天数</label>
+      <select id="dialog-days">
+        <option value="7">7 天</option>
+        <option value="30" selected>30 天</option>
+        <option value="90">90 天</option>
+      </select>
+    </div>
+    <div class="chart-wrap" id="chart-wrap"></div>
+    <div class="dialog-table-wrap" id="dialog-table-wrap">
+      <table>
+        <thead><tr>
+          <th scope="col">日期</th>
+          <th scope="col">消耗费用 (USD)</th>
+        </tr></thead>
+        <tbody id="daily-body"></tbody>
+      </table>
+    </div>
+    <div class="dialog-status" id="dialog-status" role="status" aria-live="polite"></div>
+  </dialog>
+
+  <script src="/app.js" defer></script>
+</body>
+</html>
