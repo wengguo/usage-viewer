@@ -22,7 +22,7 @@ ALTER ROLE sub2api_usage_viewer SET default_transaction_read_only = on;
 GRANT CONNECT ON DATABASE <sub2api_database> TO sub2api_usage_viewer;
 GRANT USAGE ON SCHEMA public TO sub2api_usage_viewer;
 
-GRANT SELECT (id, name, group_id, quota, quota_used, last_used_at, expires_at, status, created_at, deleted_at) ON TABLE public.api_keys TO sub2api_usage_viewer;
+GRANT SELECT (id, key, name, group_id, quota, quota_used, last_used_at, expires_at, status, created_at, deleted_at) ON TABLE public.api_keys TO sub2api_usage_viewer;
 GRANT SELECT (id, name) ON TABLE public.groups TO sub2api_usage_viewer;
 GRANT SELECT (id, api_key_id, actual_cost, created_at) ON TABLE public.usage_logs TO sub2api_usage_viewer;
 

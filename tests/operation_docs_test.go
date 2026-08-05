@@ -95,7 +95,7 @@ func TestRoleGuideMatchesCurrentColumnContract(t *testing.T) {
 	for _, column := range contract.Columns {
 		columnsByTable[column.Table] = append(columnsByTable[column.Table], column.Column)
 	}
-	if len(contract.Columns) != 16 {
+	if len(contract.Columns) != 17 {
 		t.Fatalf("live contract has %d columns, documentation must be reviewed", len(contract.Columns))
 	}
 	expectedStatements := []string{
