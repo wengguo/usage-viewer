@@ -6,7 +6,8 @@
 
 | 功能 | 说明 |
 |------|------|
-| Key 搜索 | `POST /api/search`，`targetType` 固定 `key`；`query` 对 `api_keys.name` 与 `api_keys.key` 做 ILIKE 模糊匹配（对齐 Sub2API `search`），最多 20 条 |
+| Key 列表与搜索 | 页面打开即请求 `POST /api/search` 的最新 Key；`targetType` 固定 `key`，可选 `query` 对 `api_keys.name` 与 `api_keys.key` 做 ILIKE 模糊匹配（对齐 Sub2API `search`），每页固定 20 条并返回总数 |
+| 列表排序 | 默认按 `api_keys.id` 降序；可按今日用量或近 30 天用量升降序排序，费用按数值而非展示文本排序 |
 | 列表字段 | 名称、分组、当前并发、今日用量、近 30 天用量、额度已用/总额度、上次使用、过期、状态、创建时间（响应不返回 key 明文） |
 | 每日用量 | `POST /api/key-usage`；弹窗表格 + 折线图，可选 7 / 30 / 90 天 |
 | 当前并发 | 读 Redis `concurrency:api_key:*` / `concurrency:live:api_key:*`；未配置或不可达时为 0 |
@@ -48,8 +49,8 @@ docker build -t sub2api-usage-viewer:latest .
 ## 使用
 
 1. 打开 `http://127.0.0.1:8081/`（或反代域名）。
-2. 输入 Key 名称或 Key 值（2–100 个 Unicode 字符），点「查找」。
-3. 列表展示用量与状态。
+2. 初始列表显示最新 20 个 Key；输入 Key 名称或 Key 值（2–100 个 Unicode 字符）后点「查找」，清空输入可回到无筛选列表。
+3. 点「今日用量」或「近30天用量」表头切换排序；使用「上一页」「下一页」浏览匹配结果。
 4. 点「每日用量」查看按天费用。
 
 ### 凭证发现顺序
@@ -253,6 +254,7 @@ go build -trimpath -o dist/sub2api-usage-viewer ./cmd/viewer
 ```
 
 Node.js in the first command is a development-time syntax check only; it is not a production runtime dependency.
+The viewer has no production Node.js runtime, Redis, Docker dependency.
 
 With a working Docker daemon, run the disposable PostgreSQL and real-process suite separately:
 

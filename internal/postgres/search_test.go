@@ -11,25 +11,18 @@ import (
 )
 
 func TestSearchSQLIsStaticBoundedAndProjectionSafe(t *testing.T) {
-	tests := []struct {
-		name       string
-		statement  string
-		projection string
-		limit      string
-	}{
-		{
-			name:       "key text",
-			statement:  keyByTextSQL,
-			projection: "api_key.id, api_key.name, coalesce(grp.name, ''), api_key.quota, api_key.quota_used, api_key.expires_at, api_key.status, api_key.created_at, sum(actual_cost)",
-			limit:      "limit 20",
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			normalized := strings.ToLower(tt.statement)
-			for _, required := range []string{"select ", "deleted_at is null", tt.limit, "from public.api_keys", "left join public.groups"} {
+	for name, statement := range map[string]string{
+		"browse id descending": keyBrowseByIDDescSQL, "browse id ascending": keyBrowseByIDAscSQL, "browse today desc": keyBrowseByTodayCostDescSQL,
+		"browse today asc": keyBrowseByTodayCostAscSQL, "browse thirty desc": keyBrowseByTotal30dCostDescSQL,
+		"browse thirty asc": keyBrowseByTotal30dCostAscSQL, "text id descending": keyByTextSQL, "text id ascending": keyTextByIDAscSQL,
+		"text today desc": keyTextByTodayCostDescSQL, "text today asc": keyTextByTodayCostAscSQL,
+		"text thirty desc": keyTextByTotal30dCostDescSQL, "text thirty asc": keyTextByTotal30dCostAscSQL,
+	} {
+		t.Run(name, func(t *testing.T) {
+			normalized := strings.ToLower(statement)
+			for _, required := range []string{"select ", "deleted_at is null", "limit 20", "from public.api_keys", "left join public.groups", "offset $"} {
 				if !strings.Contains(normalized, required) {
-					t.Fatalf("query missing %q: %s", required, tt.statement)
+					t.Fatalf("query missing %q: %s", required, statement)
 				}
 			}
 			for _, forbidden := range []string{"select *", " insert ", " update ", " delete "} {
@@ -44,8 +37,7 @@ func TestSearchSQLIsStaticBoundedAndProjectionSafe(t *testing.T) {
 func TestKeySearchSQLUsesBoundArgumentsAndDeterministicOrdering(t *testing.T) {
 	normalized := strings.ToLower(keyByTextSQL)
 	for _, required := range []string{
-		"$1", "$2", "$3", "$4", "$5",
-		"order by", "id asc", " escape '\\'", "ilike",
+		"$1", "$2", "$3", "$4", "$5", "order by", "id desc", " escape '\\'", "ilike",
 		"api_key.name ilike", "api_key.key ilike", " or ",
 	} {
 		if !strings.Contains(normalized, required) {
@@ -57,6 +49,23 @@ func TestKeySearchSQLUsesBoundArgumentsAndDeterministicOrdering(t *testing.T) {
 	}
 	if strings.Count(normalized, "select ") < 2 {
 		t.Fatalf("key query must contain subselects for usage aggregation")
+	}
+}
+
+func TestCostSearchSQLOrdersNumericallyWithStableIDTieBreak(t *testing.T) {
+	for name, test := range map[string]struct {
+		statement string
+		order     string
+	}{
+		"today descending":  {keyBrowseByTodayCostDescSQL, "order by today_cost desc, id desc"},
+		"today ascending":   {keyTextByTodayCostAscSQL, "order by today_cost asc, id desc"},
+		"thirty descending": {keyBrowseByTotal30dCostDescSQL, "order by total_30d_cost desc, id desc"},
+		"thirty ascending":  {keyTextByTotal30dCostAscSQL, "order by total_30d_cost asc, id desc"},
+	} {
+		normalized := strings.ToLower(test.statement)
+		if !strings.Contains(normalized, test.order) || strings.Contains(normalized, "order by today_cost::text") || strings.Contains(normalized, "order by total_30d_cost::text") {
+			t.Errorf("%s does not preserve numeric cost ordering and stable IDs: %s", name, test.statement)
+		}
 	}
 }
 

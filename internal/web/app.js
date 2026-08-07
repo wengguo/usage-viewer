@@ -2,7 +2,8 @@
   'use strict';
 
   const state = {
-    searchSequence: 0, searchController: null, results: [], keyboardSubmit: false
+    searchSequence: 0, searchController: null, results: [], query: '', page: 1,
+    pageSize: 20, total: 0, sortBy: 'id', sortDirection: 'desc'
   };
 
   const byID = (id) => document.getElementById(id);
@@ -14,6 +15,13 @@
   const resultsRegion = byID('results');
   const resultCount = byID('result-count');
   const keyBody = byID('key-body');
+  const todaySortButton = byID('sort-today-cost');
+  const total30dSortButton = byID('sort-total-30d-cost');
+  const todaySortHeader = byID('today-cost-header');
+  const total30dSortHeader = byID('total-30d-cost-header');
+  const previousPageButton = byID('previous-page');
+  const nextPageButton = byID('next-page');
+  const pageStatus = byID('page-status');
   const usageDialog = byID('usage-dialog');
   const dialogTitle = byID('dialog-title');
   const dialogClose = byID('dialog-close');
@@ -44,6 +52,10 @@
   const setSearchBusy = (busy) => {
     queryInput.disabled = busy;
     searchButton.disabled = busy;
+    todaySortButton.disabled = busy;
+    total30dSortButton.disabled = busy;
+    previousPageButton.disabled = busy || state.page <= 1;
+    nextPageButton.disabled = busy || state.page * state.pageSize >= state.total;
     searchSpinner.hidden = !busy;
     resultsRegion.setAttribute('aria-busy', String(busy));
   };
@@ -52,7 +64,7 @@
     while (keyBody.firstChild) keyBody.removeChild(keyBody.firstChild);
   };
 
-  const clearResults = () => {
+  const clearDisplayedResults = () => {
     state.results = [];
     resultCount.textContent = '';
     clearRows();
@@ -61,7 +73,7 @@
 
   const validateSearch = (rawValue) => {
     const value = rawValue.trim();
-    if (!value) return { error: '请输入 Key 名称或 Key 值' };
+    if (!value) return { value: '' };
     const length = Array.from(value).length;
     if (length < 2) return { error: '至少输入 2 个字符' };
     if (length > 100) return { error: '搜索内容不能超过 100 个字符' };
@@ -81,6 +93,11 @@
     isConcurrency(item.currentConcurrency) && isCost(item.todayCost) && isCost(item.total30dCost) &&
     isCost(item.quota) && isCost(item.quotaUsed) && typeof item.lastUsedAt === 'string' &&
     typeof item.expiresAt === 'string' && typeof item.status === 'string' && isTimestamp(item.createdAt);
+  const validSearchPayload = (payload) => hasExactKeys(payload, ['targetType', 'results', 'page', 'pageSize', 'total']) &&
+    payload.targetType === 'key' && Array.isArray(payload.results) && payload.results.every(validKeyResult) &&
+    typeof payload.page === 'number' && Number.isInteger(payload.page) && payload.page >= 1 &&
+    typeof payload.pageSize === 'number' && Number.isInteger(payload.pageSize) && payload.pageSize === 20 &&
+    typeof payload.total === 'number' && Number.isInteger(payload.total) && payload.total >= 0;
 
   const formatCost = (value) => {
     if (!value || value === '0') return '0.00';
@@ -334,8 +351,12 @@
   dialogDays.addEventListener('change', loadDailyUsage);
 
   const renderResults = () => {
-    const count = state.results.length;
-    resultCount.textContent = `找到 ${count} 个 Key`;
+    const totalPages = Math.max(1, Math.ceil(state.total / state.pageSize));
+    resultCount.textContent = `共 ${state.total} 个 Key，第 ${state.page} / ${totalPages} 页`;
+    pageStatus.textContent = `第 ${state.page} / ${totalPages} 页`;
+    previousPageButton.disabled = state.page <= 1;
+    nextPageButton.disabled = state.page >= totalPages;
+    updateSortControls();
     clearRows();
     state.results.forEach((item) => {
       const row = document.createElement('tr');
@@ -363,19 +384,22 @@
     resultsRegion.hidden = false;
   };
 
-  queryInput.addEventListener('keydown', (event) => { state.keyboardSubmit = event.key === 'Enter'; });
-  searchButton.addEventListener('pointerdown', () => { state.keyboardSubmit = false; });
-  searchForm.addEventListener('submit', async (event) => {
-    event.preventDefault();
-    const validation = validateSearch(queryInput.value);
-    if (validation.error) {
-      queryInput.setAttribute('aria-invalid', 'true');
-      setStatus(searchStatus, 'error', validation.error);
-      queryInput.focus();
-      return;
-    }
-    clearResults();
-    queryInput.removeAttribute('aria-invalid');
+  const updateSortControls = () => {
+    const update = (button, header, sortBy) => {
+      const active = state.sortBy === sortBy;
+      const direction = active ? state.sortDirection : '';
+      const directionText = direction === 'desc' ? '降序' : direction === 'asc' ? '升序' : '默认';
+      button.setAttribute('aria-pressed', String(active));
+      button.setAttribute('aria-label', `${button.dataset.label}，${directionText}`);
+      button.querySelector('.sort-direction').textContent = directionText;
+      header.setAttribute('aria-sort', direction === 'desc' ? 'descending' : direction === 'asc' ? 'ascending' : 'none');
+    };
+    update(todaySortButton, todaySortHeader, 'todayCost');
+    update(total30dSortButton, total30dSortHeader, 'total30dCost');
+  };
+
+  const loadSearch = async () => {
+    clearDisplayedResults();
     if (state.searchController) state.searchController.abort();
     state.searchController = new AbortController();
     const sequence = ++state.searchSequence;
@@ -385,24 +409,22 @@
       const response = await fetch('/api/search', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ targetType: 'key', query: validation.value }),
+        body: JSON.stringify(Object.assign(
+          { targetType: 'key', page: state.page, sortBy: state.sortBy, sortDirection: state.sortDirection },
+          state.query ? { query: state.query } : {}
+        )),
         signal: state.searchController.signal,
       });
       if (sequence !== state.searchSequence) return;
       if (!response.ok) throw new Error('search failed');
       const payload = await response.json();
-      if (!hasExactKeys(payload, ['targetType', 'results']) || payload.targetType !== 'key' ||
-          !Array.isArray(payload.results) || !payload.results.every(validKeyResult)) {
-        throw new Error('invalid response');
-      }
+      if (!validSearchPayload(payload)) throw new Error('invalid response');
       state.results = payload.results;
-      if (state.results.length === 0) {
-        setStatus(searchStatus, 'empty', '未找到匹配的 Key', '请尝试其他名称或 Key 值');
-        queryInput.focus();
-        queryInput.select();
-        return;
-      }
-      setStatus(searchStatus, 'results', `找到 ${state.results.length} 个 Key`);
+      state.page = payload.page;
+      state.pageSize = payload.pageSize;
+      state.total = payload.total;
+      setStatus(searchStatus, state.total === 0 ? 'empty' : 'results',
+        state.total === 0 ? '未找到匹配的 Key' : `找到 ${state.total} 个 Key`);
       renderResults();
     } catch (error) {
       if (sequence !== state.searchSequence || error.name === 'AbortError') return;
@@ -414,5 +436,38 @@
         state.searchController = null;
       }
     }
+  };
+
+  const changeSort = (sortBy) => {
+    if (state.sortBy === sortBy) {
+      state.sortDirection = state.sortDirection === 'desc' ? 'asc' : 'desc';
+    } else {
+      state.sortBy = sortBy;
+      state.sortDirection = 'desc';
+    }
+    state.page = 1;
+    loadSearch();
+  };
+
+  searchForm.addEventListener('submit', (event) => {
+    event.preventDefault();
+    const validation = validateSearch(queryInput.value);
+    if (validation.error) {
+      queryInput.setAttribute('aria-invalid', 'true');
+      setStatus(searchStatus, 'error', validation.error);
+      queryInput.focus();
+      return;
+    }
+    queryInput.removeAttribute('aria-invalid');
+    state.query = validation.value;
+    state.page = 1;
+    loadSearch();
   });
+  todaySortButton.addEventListener('click', () => changeSort('todayCost'));
+  total30dSortButton.addEventListener('click', () => changeSort('total30dCost'));
+  previousPageButton.addEventListener('click', () => { state.page--; loadSearch(); });
+  nextPageButton.addEventListener('click', () => { state.page++; loadSearch(); });
+
+  updateSortControls();
+  loadSearch();
 })();

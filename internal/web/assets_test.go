@@ -12,9 +12,9 @@ func TestEmbeddedAssetsAreCompleteAndSameOrigin(t *testing.T) {
 		contentType string
 		required    []string
 	}{
-		{name: "index.html", contentType: "text/html; charset=utf-8", required: []string{"用量查询", "Key 名称或 Key", "请输入 Key 名称或 Key 值", "查找", "/app.css", "/app.js", "名称", "分组", "当前并发", "今日用量", "近30天用量", "额度已用 / 总额度", "上次使用时间", "过期时间", "状态", "创建时间"}},
+		{name: "index.html", contentType: "text/html; charset=utf-8", required: []string{"用量查询", "Key 名称或 Key", "请输入 Key 名称或 Key 值", "查找", "/app.css", "/app.js", "名称", "分组", "当前并发", "今日用量", "近30天用量", "上一页", "下一页", "sort-today-cost", "额度已用 / 总额度", "上次使用时间", "过期时间", "状态", "创建时间"}},
 		{name: "app.css", contentType: "text/css; charset=utf-8", required: []string{"#f7f8fa", "#0f766e", "@media (max-width: 639px)", "@media (prefers-reduced-motion: reduce)"}},
-		{name: "app.js", contentType: "text/javascript; charset=utf-8", required: []string{"fetch('/api/search'", "targetType", "textContent", "AbortController", "formatCost", "formatTimestamp", "dataset.label", "正在搜索"}},
+		{name: "app.js", contentType: "text/javascript; charset=utf-8", required: []string{"fetch('/api/search'", "targetType", "textContent", "AbortController", "formatCost", "formatTimestamp", "dataset.label", "正在搜索", "pageSize", "sortDirection", "loadSearch();"}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

@@ -56,13 +56,19 @@ func securityHeaders(next http.Handler) http.Handler {
 }
 
 type searchRequest struct {
-	TargetType search.TargetType `json:"targetType"`
-	Query      string            `json:"query"`
+	TargetType    search.TargetType     `json:"targetType"`
+	Query         string                `json:"query"`
+	Page          *int                  `json:"page"`
+	SortBy        *search.SortBy        `json:"sortBy"`
+	SortDirection *search.SortDirection `json:"sortDirection"`
 }
 
 type keySearchResponse struct {
-	TargetType search.TargetType `json:"targetType"`
+	TargetType search.TargetType  `json:"targetType"`
 	Results    []search.KeyResult `json:"results"`
+	Page       int                `json:"page"`
+	PageSize   int                `json:"pageSize"`
+	Total      int64              `json:"total"`
 }
 
 type errorEnvelope struct {
@@ -103,7 +109,21 @@ func (application *handler) serveSearch(response http.ResponseWriter, request *h
 		return
 	}
 
-	query, err := search.Validate(search.Request{TargetType: payload.TargetType, Query: payload.Query})
+	searchRequest := search.Request{TargetType: payload.TargetType, Query: payload.Query}
+	if payload.Page != nil {
+		searchRequest.Page = *payload.Page
+		if searchRequest.Page < 1 {
+			writeError(response, http.StatusBadRequest, "INVALID_SEARCH", "The search criteria are invalid.")
+			return
+		}
+	}
+	if payload.SortBy != nil {
+		searchRequest.SortBy = *payload.SortBy
+	}
+	if payload.SortDirection != nil {
+		searchRequest.SortDirection = *payload.SortDirection
+	}
+	query, err := search.Validate(searchRequest)
 	if err != nil {
 		writeError(response, http.StatusBadRequest, "INVALID_SEARCH", "The search criteria are invalid.")
 		return
@@ -118,7 +138,11 @@ func (application *handler) serveSearch(response http.ResponseWriter, request *h
 		return
 	}
 
-	writeJSON(response, http.StatusOK, keySearchResponse{TargetType: search.TargetKey, Results: results.Keys})
+	keyResults := results.Keys
+	if keyResults == nil {
+		keyResults = []search.KeyResult{}
+	}
+	writeJSON(response, http.StatusOK, keySearchResponse{TargetType: search.TargetKey, Results: keyResults, Page: query.Page(), PageSize: search.PageSize, Total: results.Total})
 }
 
 func (application *handler) serveAsset(response http.ResponseWriter, request *http.Request) {

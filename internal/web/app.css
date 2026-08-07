@@ -42,12 +42,18 @@ button:focus-visible, #query:focus-visible { outline: 2px solid #0f766e; outline
 table { width: 100%; min-width: 1380px; border-collapse: collapse; }
 th, td { padding: 12px; border-bottom: 1px solid #cbd2d9; text-align: left; vertical-align: top; }
 th { color: #52606d; background: #fff; font-size: 14px; font-weight: 600; white-space: nowrap; }
+.sort-button { display: inline-flex; width: auto; height: 28px; min-width: 0; flex: 0 0 auto; gap: 6px; padding: 0; border: 0; border-radius: 0; color: #52606d; background: transparent; font-size: 14px; font-weight: 600; }
+.sort-button:hover, .sort-button[aria-pressed="true"] { color: #0f766e; background: transparent; }
+.sort-button:focus-visible { outline: 2px solid #0f766e; outline-offset: 3px; }
+.sort-direction { color: #7b8794; font-size: 12px; font-weight: 500; }
 tbody tr { min-height: 56px; }
 tbody tr:last-child td { border-bottom: 0; }
 td.numeric { font-variant-numeric: tabular-nums; white-space: nowrap; }
 td.breakable { max-width: 240px; overflow-wrap: anywhere; }
 .row-action { display: inline-flex; width: auto; min-width: 76px; height: 32px; flex: 0 0 auto; padding: 0 12px; border: 1px solid #0f766e; border-radius: 6px; color: #0f766e; background: #fff; font-size: 13px; font-weight: 600; cursor: pointer; }
 .row-action:hover { color: #fff; background: #0f766e; }
+.pagination { display: flex; gap: 12px; align-items: center; justify-content: flex-end; padding-top: 16px; color: #52606d; font-size: 14px; font-variant-numeric: tabular-nums; }
+.pagination-button { width: auto; min-width: 76px; height: 36px; flex: 0 0 auto; padding: 0 12px; border-radius: 6px; }
 
 .usage-dialog { width: min(820px, calc(100% - 32px)); max-height: 80vh; padding: 0; border: 1px solid #cbd2d9; border-radius: 12px; color: #17202a; background: #fff; overflow-y: auto; }
 .usage-dialog::backdrop { background: rgb(23 32 42 / 45%); }
@@ -76,6 +82,7 @@ td.breakable { max-width: 240px; overflow-wrap: anywhere; }
   thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
   tbody tr { min-height: 0; margin-top: 16px; padding: 16px; border-top: 1px solid #cbd2d9; border-bottom: 1px solid #cbd2d9; background: #fff; }
   tbody tr + tr { margin-top: 16px; }
+  .pagination { justify-content: space-between; }
   td, td.numeric, td.breakable { display: grid; max-width: none; grid-template-columns: minmax(112px, 42%) minmax(0, 1fr); gap: 12px; padding: 8px 0; border: 0; white-space: normal; overflow-wrap: anywhere; }
   td::before { content: attr(data-label); color: #52606d; font-size: 14px; font-weight: 600; }
 }

@@ -28,7 +28,8 @@ func TestValidateAcceptsKeyNameQuery(t *testing.T) {
 			if !query.Valid() {
 				t.Fatal("Validate() returned an invalid Query")
 			}
-			if query.TargetType() != TargetKey || query.Mode() != tt.wantMode || query.Text() != tt.wantText {
+			if query.TargetType() != TargetKey || query.Mode() != tt.wantMode || query.Text() != tt.wantText ||
+				query.Page() != 1 || query.SortBy() != SortByID || query.SortDirection() != SortDirectionDescending {
 				t.Fatalf("query = target %q mode %d text %q", query.TargetType(), query.Mode(), query.Text())
 			}
 		})
@@ -43,7 +44,6 @@ func TestValidateRejectsInvalidRequestsWithoutEchoingInput(t *testing.T) {
 		wantErr error
 	}{
 		{name: "unsupported target", request: Request{TargetType: TargetType("account"), Query: sensitiveInput}, wantErr: ErrUnsupportedTarget},
-		{name: "empty", request: Request{TargetType: TargetKey, Query: " \t\n"}, wantErr: ErrEmptyQuery},
 		{name: "short", request: Request{TargetType: TargetKey, Query: "x"}, wantErr: ErrTextTooShort},
 		{name: "short multibyte", request: Request{TargetType: TargetKey, Query: "用"}, wantErr: ErrTextTooShort},
 		{name: "long", request: Request{TargetType: TargetKey, Query: strings.Repeat("界", MaximumTextRunes+1)}, wantErr: ErrTextTooLong},
@@ -63,6 +63,33 @@ func TestValidateRejectsInvalidRequestsWithoutEchoingInput(t *testing.T) {
 				t.Fatalf("validation error echoed input: %q", err)
 			}
 		})
+	}
+}
+
+func TestValidateAcceptsBrowseAndPaginationOptions(t *testing.T) {
+	query, err := Validate(Request{TargetType: TargetKey, Page: 3, SortBy: SortByTodayCost, SortDirection: SortDirectionAscending})
+	if err != nil || !query.Valid() {
+		t.Fatalf("Validate() error = %v", err)
+	}
+	if query.Mode() != QueryModeBrowse || query.Text() != "" || query.Page() != 3 ||
+		query.SortBy() != SortByTodayCost || query.SortDirection() != SortDirectionAscending {
+		t.Fatalf("unexpected browse query: %#v", query)
+	}
+}
+
+func TestValidateRejectsInvalidPaginationAndSort(t *testing.T) {
+	for _, tt := range []struct {
+		request Request
+		wantErr error
+	}{
+		{request: Request{TargetType: TargetKey, Page: -1}, wantErr: ErrInvalidPage},
+		{request: Request{TargetType: TargetKey, SortBy: SortBy("name")}, wantErr: ErrInvalidSortBy},
+		{request: Request{TargetType: TargetKey, SortDirection: SortDirection("sideways")}, wantErr: ErrInvalidSortOrder},
+	} {
+		_, err := Validate(tt.request)
+		if !errors.Is(err, tt.wantErr) {
+			t.Errorf("Validate(%#v) error = %v, want %v", tt.request, err, tt.wantErr)
+		}
 	}
 }
 

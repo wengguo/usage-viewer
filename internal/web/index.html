@@ -38,8 +38,8 @@
               <th scope="col">名称</th>
               <th scope="col">分组</th>
               <th scope="col">当前并发</th>
-              <th scope="col">今日用量</th>
-              <th scope="col">近30天用量</th>
+              <th id="today-cost-header" scope="col" aria-sort="none"><button class="sort-button" id="sort-today-cost" type="button" data-label="今日用量">今日用量 <span class="sort-direction">默认</span></button></th>
+              <th id="total-30d-cost-header" scope="col" aria-sort="none"><button class="sort-button" id="sort-total-30d-cost" type="button" data-label="近30天用量">近30天用量 <span class="sort-direction">默认</span></button></th>
               <th scope="col">额度已用 / 总额度</th>
               <th scope="col">上次使用时间</th>
               <th scope="col">过期时间</th>
@@ -50,6 +50,11 @@
             <tbody id="key-body"></tbody>
           </table>
         </div>
+        <nav class="pagination" aria-label="Key 列表分页">
+          <button class="pagination-button" id="previous-page" type="button">上一页</button>
+          <span id="page-status" aria-live="polite"></span>
+          <button class="pagination-button" id="next-page" type="button">下一页</button>
+        </nav>
       </section>
     </div>
   </main>

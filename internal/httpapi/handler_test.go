@@ -14,10 +14,10 @@ import (
 
 func TestSearchEndpointReturnsOnlyKeyTargetSpecificSafeProjection(t *testing.T) {
 	body := `{"targetType":"key","query":"weng"}`
-	results := search.Results{Keys: []search.KeyResult{
+	results := search.Results{Page: 1, PageSize: search.PageSize, Total: 1, Keys: []search.KeyResult{
 		{ID: 17, Name: "wengguo", GroupName: "default", CurrentConcurrency: 2, TodayCost: "1.25", Total30dCost: "99.5", Quota: "5000", QuotaUsed: "10", LastUsedAt: "2026-08-04T00:00:00Z", Status: "active", CreatedAt: "2026-08-05T00:00:00Z"},
 	}}
-	wantBody := `{"targetType":"key","results":[{"id":17,"name":"wengguo","groupName":"default","currentConcurrency":2,"todayCost":"1.25","total30dCost":"99.5","quota":"5000","quotaUsed":"10","lastUsedAt":"2026-08-04T00:00:00Z","expiresAt":"","status":"active","createdAt":"2026-08-05T00:00:00Z"}]}` + "\n"
+	wantBody := `{"targetType":"key","results":[{"id":17,"name":"wengguo","groupName":"default","currentConcurrency":2,"todayCost":"1.25","total30dCost":"99.5","quota":"5000","quotaUsed":"10","lastUsedAt":"2026-08-04T00:00:00Z","expiresAt":"","status":"active","createdAt":"2026-08-05T00:00:00Z"}],"page":1,"pageSize":20,"total":1}` + "\n"
 
 	service := &fakeSearchService{results: results}
 	response := serveRequest(NewHandler(service), http.MethodPost, "/api/search", body, "application/json", "")
@@ -48,7 +48,9 @@ func TestSearchEndpointRejectsUnsafeRequestShapesBeforeService(t *testing.T) {
 		{name: "unknown field", method: http.MethodPost, body: `{"targetType":"key","query":"ok","extra":"` + sentinel + `"}`, contentType: "application/json", wantStatus: http.StatusBadRequest},
 		{name: "trailing value", method: http.MethodPost, body: `{"targetType":"key","query":"ok"}{}`, contentType: "application/json", wantStatus: http.StatusBadRequest},
 		{name: "unsupported target", method: http.MethodPost, body: `{"targetType":"crafted","query":"` + sentinel + `"}`, contentType: "application/json", wantStatus: http.StatusBadRequest},
-		{name: "empty query", method: http.MethodPost, body: `{"targetType":"key","query":""}`, contentType: "application/json", wantStatus: http.StatusBadRequest},
+		{name: "invalid page", method: http.MethodPost, body: `{"targetType":"key","page":0}`, contentType: "application/json", wantStatus: http.StatusBadRequest},
+		{name: "invalid sort field", method: http.MethodPost, body: `{"targetType":"key","sortBy":"name"}`, contentType: "application/json", wantStatus: http.StatusBadRequest},
+		{name: "invalid sort direction", method: http.MethodPost, body: `{"targetType":"key","sortDirection":"sideways"}`, contentType: "application/json", wantStatus: http.StatusBadRequest},
 		{name: "oversized", method: http.MethodPost, body: `{"targetType":"key","query":"` + strings.Repeat("x", 1100) + `"}`, contentType: "application/json", wantStatus: http.StatusBadRequest},
 	}
 	for _, tt := range tests {
@@ -66,6 +68,21 @@ func TestSearchEndpointRejectsUnsafeRequestShapesBeforeService(t *testing.T) {
 				t.Fatal("CORS header must remain absent")
 			}
 		})
+	}
+}
+
+func TestSearchEndpointDefaultsToFirstUnfilteredPageAndAcceptsPagination(t *testing.T) {
+	service := &fakeSearchService{results: search.Results{Page: 2, PageSize: search.PageSize, Total: 23}}
+	response := serveRequest(NewHandler(service), http.MethodPost, "/api/search", `{"targetType":"key","page":2,"sortBy":"todayCost","sortDirection":"asc"}`, "application/json", "")
+	if response.Code != http.StatusOK || service.calls != 1 {
+		t.Fatalf("status=%d calls=%d", response.Code, service.calls)
+	}
+	if service.query.Mode() != search.QueryModeBrowse || service.query.Page() != 2 ||
+		service.query.SortBy() != search.SortByTodayCost || service.query.SortDirection() != search.SortDirectionAscending {
+		t.Fatalf("query = %#v", service.query)
+	}
+	if response.Body.String() != `{"targetType":"key","results":[],"page":2,"pageSize":20,"total":23}`+"\n" {
+		t.Fatalf("body=%q", response.Body.String())
 	}
 }
 
@@ -185,10 +202,12 @@ type fakeSearchService struct {
 	err        error
 	calls      int
 	contextErr error
+	query      search.Query
 }
 
-func (service *fakeSearchService) Search(ctx context.Context, _ search.Query) (search.Results, error) {
+func (service *fakeSearchService) Search(ctx context.Context, query search.Query) (search.Results, error) {
 	service.calls++
 	service.contextErr = ctx.Err()
+	service.query = query
 	return service.results, service.err
 }
