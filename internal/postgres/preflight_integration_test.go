@@ -37,49 +37,61 @@ func TestPreflightRejectsUnexpectedRequiredRelationKinds(t *testing.T) {
 		{
 			name:    "partitioned table",
 			relkind: "p",
-			install: []string{`CREATE TABLE public.accounts (
+			install: []string{`CREATE TABLE public.api_keys (
                 id bigint NOT NULL,
+                key varchar NOT NULL,
                 name varchar NOT NULL,
-                platform varchar NOT NULL,
+                group_id bigint NULL,
+                quota numeric NOT NULL,
+                quota_used numeric NOT NULL,
+                last_used_at timestamptz NULL,
+                expires_at timestamptz NULL,
                 status varchar NOT NULL,
+                created_at timestamptz NOT NULL,
                 deleted_at timestamptz NULL
             ) PARTITION BY RANGE (id)`},
-			remove:        []string{`DROP TABLE public.accounts`},
+			remove:        []string{`DROP TABLE public.api_keys`},
 			grantContract: true,
 		},
 		{
 			name:    "owner privileged view",
 			relkind: "v",
 			install: []string{
-				`CREATE TABLE public.accounts_relation_source_plan05 (
+				`CREATE TABLE public.api_keys_relation_source_plan05 (
                     id bigint NOT NULL,
+                    key varchar NOT NULL,
                     name varchar NOT NULL,
-                    platform varchar NOT NULL,
+                    group_id bigint NULL,
+                    quota numeric NOT NULL,
+                    quota_used numeric NOT NULL,
+                    last_used_at timestamptz NULL,
+                    expires_at timestamptz NULL,
                     status varchar NOT NULL,
+                    created_at timestamptz NOT NULL,
                     deleted_at timestamptz NULL,
                     unrelated_value text NOT NULL
                 )`,
-				`INSERT INTO public.accounts_relation_source_plan05
-                    (id, name, platform, status, deleted_at, unrelated_value)
-                 VALUES (1, 'account-name', 'platform-name', 'active', NULL, 'unrelated-data-secret-sentinel')`,
-				`CREATE VIEW public.accounts AS
-                 SELECT id, name, platform, status, deleted_at
-                 FROM public.accounts_relation_source_plan05`,
+				`INSERT INTO public.api_keys_relation_source_plan05
+                    (id, key, name, group_id, quota, quota_used, last_used_at, expires_at, status, created_at, deleted_at, unrelated_value)
+                 VALUES (1, 'sk-relation-source', 'key-name', NULL, 0, 0, NULL, NULL, 'active', pg_catalog.now(), NULL, 'unrelated-data-secret-sentinel')`,
+				`CREATE VIEW public.api_keys AS
+                 SELECT id, key, name, group_id, quota, quota_used, last_used_at, expires_at, status, created_at, deleted_at
+                 FROM public.api_keys_relation_source_plan05`,
 			},
 			remove: []string{
-				`DROP VIEW public.accounts`,
-				`DROP TABLE public.accounts_relation_source_plan05`,
+				`DROP VIEW public.api_keys`,
+				`DROP TABLE public.api_keys_relation_source_plan05`,
 			},
 			grantContract: true,
 		},
 		{
 			name:    "materialized view",
 			relkind: "m",
-			install: []string{`CREATE MATERIALIZED VIEW public.accounts AS
-                SELECT id, name, platform, status, deleted_at
-                FROM public.accounts_plan05_original
+			install: []string{`CREATE MATERIALIZED VIEW public.api_keys AS
+                SELECT id, key, name, group_id, quota, quota_used, last_used_at, expires_at, status, created_at, deleted_at
+                FROM public.api_keys_plan05_original
                 WITH NO DATA`},
-			remove:        []string{`DROP MATERIALIZED VIEW public.accounts`},
+			remove:        []string{`DROP MATERIALIZED VIEW public.api_keys`},
 			grantContract: true,
 		},
 		{
@@ -87,19 +99,25 @@ func TestPreflightRejectsUnexpectedRequiredRelationKinds(t *testing.T) {
 			relkind: "f",
 			install: []string{
 				`CREATE EXTENSION postgres_fdw`,
-				`CREATE SERVER accounts_plan05_server FOREIGN DATA WRAPPER postgres_fdw`,
-				`CREATE FOREIGN TABLE public.accounts (
+				`CREATE SERVER api_keys_plan05_server FOREIGN DATA WRAPPER postgres_fdw`,
+				`CREATE FOREIGN TABLE public.api_keys (
                     id bigint,
+                    key varchar,
                     name varchar,
-                    platform varchar,
+                    group_id bigint,
+                    quota numeric,
+                    quota_used numeric,
+                    last_used_at timestamptz,
+                    expires_at timestamptz,
                     status varchar,
+                    created_at timestamptz,
                     deleted_at timestamptz
-                ) SERVER accounts_plan05_server
-                OPTIONS (schema_name 'public', table_name 'accounts_plan05_never_queried')`,
+                ) SERVER api_keys_plan05_server
+                OPTIONS (schema_name 'public', table_name 'api_keys_plan05_never_queried')`,
 			},
 			remove: []string{
-				`DROP FOREIGN TABLE public.accounts`,
-				`DROP SERVER accounts_plan05_server`,
+				`DROP FOREIGN TABLE public.api_keys`,
+				`DROP SERVER api_keys_plan05_server`,
 				`DROP EXTENSION postgres_fdw`,
 			},
 			grantContract: true,
@@ -107,21 +125,27 @@ func TestPreflightRejectsUnexpectedRequiredRelationKinds(t *testing.T) {
 		{
 			name:    "composite relation",
 			relkind: "c",
-			install: []string{`CREATE TYPE public.accounts AS (
+			install: []string{`CREATE TYPE public.api_keys AS (
                 id bigint,
+                key varchar,
                 name varchar,
-                platform varchar,
+                group_id bigint,
+                quota numeric,
+                quota_used numeric,
+                last_used_at timestamptz,
+                expires_at timestamptz,
                 status varchar,
+                created_at timestamptz,
                 deleted_at timestamptz
             )`},
-			remove: []string{`DROP TYPE public.accounts`},
+			remove: []string{`DROP TYPE public.api_keys`},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			harness.replaceRequiredRelation(t, "accounts", tt.install, tt.remove, tt.grantContract)
-			if got := harness.requiredRelationKind(t, "accounts"); got != tt.relkind {
+			harness.replaceRequiredRelation(t, "api_keys", tt.install, tt.remove, tt.grantContract)
+			if got := harness.requiredRelationKind(t, "api_keys"); got != tt.relkind {
 				t.Fatalf("observed relkind = %q, want %q", got, tt.relkind)
 			}
 			if tt.relkind == "v" {
@@ -130,7 +154,7 @@ func TestPreflightRejectsUnexpectedRequiredRelationKinds(t *testing.T) {
 					context.Background(),
 					`SELECT pg_catalog.has_table_privilege($1, $2, 'SELECT')`,
 					integrationRoleName,
-					"public.accounts_relation_source_plan05",
+					"public.api_keys_relation_source_plan05",
 				).Scan(&sourceSelectable)
 				require.NoError(t, err)
 				if sourceSelectable {
@@ -195,13 +219,13 @@ func TestPreflightRejectsUnsafeRealPostgreSQLVariants(t *testing.T) {
 		{name: "grant option", wantCode: diagnostics.CodeDatabasePrivilege, setup: []string{"GRANT CONNECT ON DATABASE usage_viewer_test TO " + role + " WITH GRANT OPTION"}, cleanup: []string{"REVOKE GRANT OPTION FOR CONNECT ON DATABASE usage_viewer_test FROM " + role}},
 		{name: "security definer execution", wantCode: diagnostics.CodeDatabasePrivilege, setup: []string{"CREATE FUNCTION public.security_definer_fixture() RETURNS integer LANGUAGE sql SECURITY DEFINER AS 'SELECT 1'", "GRANT EXECUTE ON FUNCTION public.security_definer_fixture() TO " + role}, cleanup: []string{"DROP FUNCTION public.security_definer_fixture()"}},
 		{name: "large object write", wantCode: diagnostics.CodeDatabasePrivilege, setup: []string{"SELECT pg_catalog.lo_create(987654)", "GRANT UPDATE ON LARGE OBJECT 987654 TO " + role}, cleanup: []string{"SELECT pg_catalog.lo_unlink(987654)"}},
-		{name: "broad select", wantCode: diagnostics.CodeDatabasePrivilege, setup: []string{"GRANT SELECT ON public.accounts TO " + role}, cleanup: []string{"REVOKE SELECT ON public.accounts FROM " + role}},
+		{name: "broad select", wantCode: diagnostics.CodeDatabasePrivilege, setup: []string{"GRANT SELECT ON public.api_keys TO " + role}, cleanup: []string{"REVOKE SELECT ON public.api_keys FROM " + role}},
 		{name: "public broad select", wantCode: diagnostics.CodeDatabasePrivilege, setup: []string{"GRANT SELECT ON public.other_records TO PUBLIC"}, cleanup: []string{"REVOKE SELECT ON public.other_records FROM PUBLIC"}},
-		{name: "unexpected column select", wantCode: diagnostics.CodeDatabasePrivilege, setup: []string{"GRANT SELECT (internal_secret) ON public.accounts TO " + role}, cleanup: []string{"REVOKE SELECT (internal_secret) ON public.accounts FROM " + role}},
-		{name: "missing required grant", wantCode: diagnostics.CodeDatabasePrivilege, setup: []string{"REVOKE SELECT (name) ON public.accounts FROM " + role}, cleanup: []string{"GRANT SELECT (name) ON public.accounts TO " + role}},
+		{name: "unexpected column select", wantCode: diagnostics.CodeDatabasePrivilege, setup: []string{"GRANT SELECT (internal_secret) ON public.api_keys TO " + role}, cleanup: []string{"REVOKE SELECT (internal_secret) ON public.api_keys FROM " + role}},
+		{name: "missing required grant", wantCode: diagnostics.CodeDatabasePrivilege, setup: []string{"REVOKE SELECT (name) ON public.api_keys FROM " + role}, cleanup: []string{"GRANT SELECT (name) ON public.api_keys TO " + role}},
 		{name: "read write default", wantCode: diagnostics.CodeDatabaseReadOnly, setup: []string{"ALTER ROLE " + role + " SET default_transaction_read_only = off"}, cleanup: []string{"ALTER ROLE " + role + " SET default_transaction_read_only = on"}},
-		{name: "mistyped required column", wantCode: diagnostics.CodeSchemaCompatibility, setup: []string{"ALTER TABLE public.accounts ALTER COLUMN name TYPE text"}, cleanup: []string{"ALTER TABLE public.accounts ALTER COLUMN name TYPE varchar"}},
-		{name: "wrong nullability", wantCode: diagnostics.CodeSchemaCompatibility, setup: []string{"ALTER TABLE public.accounts ALTER COLUMN name DROP NOT NULL"}, cleanup: []string{"ALTER TABLE public.accounts ALTER COLUMN name SET NOT NULL"}},
+		{name: "mistyped required column", wantCode: diagnostics.CodeSchemaCompatibility, setup: []string{"ALTER TABLE public.api_keys ALTER COLUMN name TYPE text"}, cleanup: []string{"ALTER TABLE public.api_keys ALTER COLUMN name TYPE varchar"}},
+		{name: "wrong nullability", wantCode: diagnostics.CodeSchemaCompatibility, setup: []string{"ALTER TABLE public.api_keys ALTER COLUMN name DROP NOT NULL"}, cleanup: []string{"ALTER TABLE public.api_keys ALTER COLUMN name SET NOT NULL"}},
 	}
 
 	for _, tt := range tests {
@@ -223,10 +247,10 @@ func TestPreflightRejectsUnsafeRealPostgreSQLVariants(t *testing.T) {
 
 func TestPreflightRejectsMissingRequiredColumn(t *testing.T) {
 	harness := requirePostgresIntegrationHarness(t)
-	harness.execAdmin(t, `ALTER TABLE public.accounts DROP COLUMN name`)
+	harness.execAdmin(t, `ALTER TABLE public.api_keys DROP COLUMN name`)
 	defer func() {
-		harness.execAdmin(t, `ALTER TABLE public.accounts ADD COLUMN name varchar NOT NULL DEFAULT ''`)
-		harness.execAdmin(t, `ALTER TABLE public.accounts ALTER COLUMN name DROP DEFAULT`)
+		harness.execAdmin(t, `ALTER TABLE public.api_keys ADD COLUMN name varchar NOT NULL DEFAULT ''`)
+		harness.execAdmin(t, `ALTER TABLE public.api_keys ALTER COLUMN name DROP DEFAULT`)
 		require.NoError(t, harness.grantContractColumns(context.Background(), integrationRoleName))
 	}()
 	err := runCandidatePreflight(t, harness)

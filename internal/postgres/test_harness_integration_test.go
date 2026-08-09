@@ -114,37 +114,29 @@ func (h *postgresIntegrationHarness) createBaseFixture(ctx context.Context) erro
 	statements := []string{
 		`REVOKE CREATE, TEMP ON DATABASE usage_viewer_test FROM PUBLIC`,
 		`REVOKE CREATE ON SCHEMA public FROM PUBLIC`,
-		`CREATE TABLE public.accounts (
+		`CREATE TABLE public.groups (
             id bigint NOT NULL,
             name varchar NOT NULL,
-            platform varchar NOT NULL,
+            internal_secret text NULL
+        )`,
+		`CREATE TABLE public.api_keys (
+            id bigint NOT NULL,
+            key varchar NOT NULL,
+            name varchar NOT NULL,
+            group_id bigint NULL,
+            quota numeric NOT NULL,
+            quota_used numeric NOT NULL,
+            last_used_at timestamptz NULL,
+            expires_at timestamptz NULL,
             status varchar NOT NULL,
+            created_at timestamptz NOT NULL,
             deleted_at timestamptz NULL,
             internal_secret text NULL
         )`,
-		`CREATE TABLE public.users (
-            id bigint NOT NULL,
-            email varchar NOT NULL,
-            username varchar NOT NULL,
-            status varchar NOT NULL,
-            deleted_at timestamptz NULL,
-            password_hash text NULL
-        )`,
 		`CREATE TABLE public.usage_logs (
             id bigint NOT NULL,
-            user_id bigint NOT NULL,
-            account_id bigint NOT NULL,
-            request_id varchar NULL,
-            model varchar NOT NULL,
-            requested_model varchar NULL,
-            input_tokens integer NOT NULL,
-            output_tokens integer NOT NULL,
-            cache_creation_tokens integer NOT NULL,
-            cache_read_tokens integer NOT NULL,
-            total_cost numeric NOT NULL,
+            api_key_id bigint NULL,
             actual_cost numeric NOT NULL,
-            account_stats_cost numeric NULL,
-            account_rate_multiplier numeric NULL,
             created_at timestamptz NOT NULL,
             internal_secret text NULL
         )`,
