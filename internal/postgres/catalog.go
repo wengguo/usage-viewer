@@ -74,7 +74,7 @@ user_sequences AS (
 ),
 required_columns(schema_name, table_name, column_name) AS (
     SELECT required.schema_name, required.table_name, required.column_name
-    FROM pg_catalog.unnest($1::text[], $2::text[], $3::text[])
+    FROM unnest($1::text[], $2::text[], $3::text[])
       AS required(schema_name, table_name, column_name)
 )
 SELECT
@@ -283,7 +283,7 @@ SELECT
 const relationEvidenceSQL = `
 WITH required_relations(schema_name, relation_name, position) AS (
     SELECT required.schema_name, required.relation_name, required.position
-    FROM pg_catalog.unnest($1::text[], $2::text[])
+    FROM unnest($1::text[], $2::text[])
       WITH ORDINALITY AS required(schema_name, relation_name, position)
 )
 SELECT
@@ -302,7 +302,7 @@ ORDER BY required.position
 const columnEvidenceSQL = `
 WITH required_columns(schema_name, table_name, column_name, position) AS (
     SELECT required.schema_name, required.table_name, required.column_name, required.position
-    FROM pg_catalog.unnest($1::text[], $2::text[], $3::text[])
+    FROM unnest($1::text[], $2::text[], $3::text[])
       WITH ORDINALITY AS required(schema_name, table_name, column_name, position)
 )
 SELECT

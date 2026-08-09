@@ -55,7 +55,7 @@ func TestRelationEvidenceSQLContract(t *testing.T) {
 	}
 	for _, fragment := range []string{
 		"with required_relations(schema_name, relation_name, position) as",
-		"pg_catalog.unnest($1::text[], $2::text[])",
+		"unnest($1::text[], $2::text[])",
 		"with ordinality",
 		"left join pg_catalog.pg_namespace",
 		"left join pg_catalog.pg_class",
