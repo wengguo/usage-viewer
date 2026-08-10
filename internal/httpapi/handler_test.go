@@ -125,7 +125,7 @@ func TestEmbeddedApplicationAssetsUseExactGetOnlyRoutes(t *testing.T) {
 		contains    string
 	}{
 		{method: http.MethodGet, path: "/", wantStatus: http.StatusOK, contentType: "text/html; charset=utf-8", contains: "用量查询"},
-		{method: http.MethodGet, path: "/app.css", wantStatus: http.StatusOK, contentType: "text/css; charset=utf-8", contains: ".workspace"},
+		{method: http.MethodGet, path: "/app.css", wantStatus: http.StatusOK, contentType: "text/css; charset=utf-8", contains: ".spinner"},
 		{method: http.MethodGet, path: "/app.js", wantStatus: http.StatusOK, contentType: "text/javascript; charset=utf-8", contains: "fetch('/api/search'"},
 		{method: http.MethodHead, path: "/", wantStatus: http.StatusMethodNotAllowed},
 		{method: http.MethodGet, path: "/unknown", wantStatus: http.StatusNotFound},
@@ -210,4 +210,14 @@ func (service *fakeSearchService) Search(ctx context.Context, query search.Query
 	service.contextErr = ctx.Err()
 	service.query = query
 	return service.results, service.err
+}
+
+func TestNewFullHandlerRoutesAllFourAPIEndpoints(t *testing.T) {
+	application := NewFullHandler(nil, nil, nil, nil)
+	for _, path := range []string{"/api/search", "/api/key-usage", "/api/leaderboard", "/api/self-lookup"} {
+		response := serveRequest(application, http.MethodPost, path, `{}`, "application/json", "")
+		if response.Code == http.StatusNotFound {
+			t.Fatalf("path %q is not routed", path)
+		}
+	}
 }

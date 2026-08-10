@@ -81,7 +81,9 @@ func runWith(
 			resolver := concurrency.NewResolver(cfg)
 			searchRepository := postgres.NewSearchRepository(pool, cfg.DatabaseQueryTimeout, resolver)
 			dailyRepository := postgres.NewDailyUsageRepository(pool, cfg.DatabaseQueryTimeout)
-			return httpapi.NewHandlerWithDailyUsage(searchRepository, dailyRepository)
+			leaderboardRepository := postgres.NewLeaderboardRepository(pool, cfg.DatabaseQueryTimeout)
+			selfLookupRepository := postgres.NewSelfLookupRepository(pool, cfg.DatabaseQueryTimeout)
+			return httpapi.NewFullHandler(searchRepository, dailyRepository, leaderboardRepository, selfLookupRepository)
 		},
 		NewCredentialHandler: func(cfg *config.Config, saveCreds func(string, creds.Entry) error) http.Handler {
 			return httpapi.NewCredentialHandler(cfg, saveCreds)

@@ -23,8 +23,10 @@ type SearchService interface {
 }
 
 type handler struct {
-	search     SearchService
-	dailyUsage DailyUsageService
+	search      SearchService
+	dailyUsage  DailyUsageService
+	leaderboard LeaderboardService
+	selfLookup  SelfLookupService
 }
 
 func NewHandler(searchService SearchService) http.Handler {
@@ -32,12 +34,18 @@ func NewHandler(searchService SearchService) http.Handler {
 }
 
 func NewHandlerWithDailyUsage(searchService SearchService, dailyUsageService DailyUsageService) http.Handler {
-	application := &handler{search: searchService, dailyUsage: dailyUsageService}
+	return NewFullHandler(searchService, dailyUsageService, nil, nil)
+}
+
+func NewFullHandler(searchService SearchService, dailyUsageService DailyUsageService, leaderboardService LeaderboardService, selfLookupService SelfLookupService) http.Handler {
+	application := &handler{search: searchService, dailyUsage: dailyUsageService, leaderboard: leaderboardService, selfLookup: selfLookupService}
 	mux := http.NewServeMux()
 	mux.HandleFunc("/livez", serveHealth)
 	mux.HandleFunc("/readyz", serveHealth)
 	mux.HandleFunc("/api/search", application.serveSearch)
 	mux.HandleFunc("/api/key-usage", application.serveDailyUsage)
+	mux.HandleFunc("/api/leaderboard", application.serveLeaderboard)
+	mux.HandleFunc("/api/self-lookup", application.serveSelfLookup)
 	mux.HandleFunc("/", application.serveAsset)
 	return securityHeaders(mux)
 }
@@ -162,6 +170,18 @@ func (application *handler) serveAsset(response http.ResponseWriter, request *ht
 		name = "credentials.js"
 	case "/favicon.svg":
 		name = "favicon.svg"
+	case "/leaderboard":
+		name = "leaderboard.html"
+	case "/leaderboard.js":
+		name = "leaderboard.js"
+	case "/self":
+		name = "self.html"
+	case "/self.js":
+		name = "self.js"
+	case "/theme-init.js":
+		name = "theme-init.js"
+	case "/theme.js":
+		name = "theme.js"
 	default:
 		http.NotFound(response, request)
 		return
