@@ -8,7 +8,7 @@
   <script src="/theme-init.js"></script>
   <link rel="stylesheet" href="/app.css">
 </head>
-<body class="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
+<body class="min-h-screen bg-slate-50 font-sans text-slate-900 antialiased dark:bg-slate-950 dark:text-slate-100">
   <div class="flex min-h-screen">
     <div id="sidebar-overlay" class="fixed inset-0 z-30 bg-slate-900/50 md:hidden" hidden></div>
 
@@ -24,13 +24,13 @@
       </div>
 
       <nav class="flex-1 space-y-1 px-3 py-4">
-        <a href="/" class="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800">
-          <svg viewBox="0 0 20 20" fill="none" class="h-5 w-5 flex-none" aria-hidden="true"><circle cx="9" cy="9" r="6" stroke="currentColor" stroke-width="1.6"/><path d="M14 14l4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
-          <span>Key 查询</span>
-        </a>
         <a href="/leaderboard" aria-current="page" class="flex items-center gap-3 rounded-lg bg-teal-50 px-3 py-2 text-sm font-medium text-teal-700 dark:bg-teal-900/40 dark:text-teal-300">
           <svg viewBox="0 0 20 20" fill="none" class="h-5 w-5 flex-none" aria-hidden="true"><path d="M6 3h8v5a4 4 0 01-8 0V3z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M6 4H4a1 1 0 000 5h1M14 4h2a1 1 0 010 5h-1" stroke="currentColor" stroke-width="1.6"/><path d="M10 12v3M8 17h4M8 15.5h4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
           <span>排行榜</span>
+        </a>
+        <a href="/" class="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800">
+          <svg viewBox="0 0 20 20" fill="none" class="h-5 w-5 flex-none" aria-hidden="true"><circle cx="9" cy="9" r="6" stroke="currentColor" stroke-width="1.6"/><path d="M14 14l4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+          <span>Key 查询</span>
         </a>
         <a href="/self" class="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800">
           <svg viewBox="0 0 20 20" fill="none" class="h-5 w-5 flex-none" aria-hidden="true"><circle cx="10" cy="6.5" r="3.2" stroke="currentColor" stroke-width="1.6"/><path d="M4 17c0-3.3 2.7-5.5 6-5.5s6 2.2 6 5.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
@@ -54,7 +54,7 @@
         <span class="font-semibold">消耗排行榜</span>
       </header>
 
-      <main class="mx-auto max-w-6xl px-4 py-8">
+      <main class="px-6 py-8">
         <div class="mb-6 flex flex-wrap items-center gap-3">
           <h1 class="text-xl font-semibold">消耗排行榜</h1>
           <label for="limit-select" class="ml-auto text-sm font-semibold text-slate-600 dark:text-slate-400">显示数量</label>
