@@ -13,7 +13,7 @@ func TestEmbeddedAssetsAreCompleteAndSameOrigin(t *testing.T) {
 		required    []string
 	}{
 		{name: "index.html", contentType: "text/html; charset=utf-8", required: []string{"用量查询", "Key 名称或 Key", "请输入 Key 名称或 Key 值", "查找", "/app.css", "/app.js", "名称", "分组", "当前并发", "今日用量", "近30天用量", "上一页", "下一页", "sort-today-cost", "额度已用 / 总额度", "上次使用时间", "过期时间", "状态", "创建时间"}},
-		{name: "app.css", contentType: "text/css; charset=utf-8", required: []string{"#f7f8fa", "#0f766e", "@media (max-width: 639px)", "@media (prefers-reduced-motion: reduce)"}},
+		{name: "app.css", contentType: "text/css; charset=utf-8", required: []string{".spinner", "@keyframes spin", "usage-dialog::backdrop", "prefers-reduced-motion"}},
 		{name: "app.js", contentType: "text/javascript; charset=utf-8", required: []string{"fetch('/api/search'", "targetType", "textContent", "AbortController", "formatCost", "formatTimestamp", "dataset.label", "正在搜索", "pageSize", "sortDirection", "loadSearch();"}},
 	}
 	for _, tt := range tests {
@@ -102,9 +102,58 @@ func TestKeySurfaceUsesExplicitApprovedFields(t *testing.T) {
 }
 
 func TestReadRejectsEveryUnknownAsset(t *testing.T) {
-	for _, name := range []string{"", "../index.html", "missing.js", "index.html/extra"} {
+	for _, name := range []string{"", "../index.html", "missing.js", "index.html/extra", "vendor/tailwind.js"} {
 		if _, err := Read(name); !errors.Is(err, ErrAssetNotFound) {
 			t.Errorf("Read(%q) error=%v", name, err)
+		}
+	}
+}
+
+func TestThemeScriptsAreEmbeddedAsJavaScript(t *testing.T) {
+	for _, name := range []string{"theme-init.js", "theme.js"} {
+		asset, err := Read(name)
+		if err != nil {
+			t.Fatalf("Read(%s) error = %v", name, err)
+		}
+		if asset.ContentType != "text/javascript; charset=utf-8" {
+			t.Fatalf("%s content type = %q", name, asset.ContentType)
+		}
+	}
+}
+
+// theme.js/theme-init.js are the one deliberate exception to the
+// "no local persistence" rule elsewhere in this codebase: they may read and
+// write exactly one localStorage key, 'theme', to remember the user's
+// light/dark preference across the full-page navigations between these
+// three static pages. Any other localStorage key, or any other forbidden
+// browser API, must still be rejected the same as in the other scripts.
+func TestThemeScriptsOnlyPersistTheThemePreference(t *testing.T) {
+	for _, name := range []string{"theme-init.js", "theme.js"} {
+		asset, err := Read(name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		content := string(asset.Content)
+		for _, forbidden := range []string{
+			"inner" + "HTML", "insertAdjacent" + "HTML", "session" + "Storage",
+			"document." + "cookie", "console.", "history." + "pushState", "history." + "replaceState",
+		} {
+			if strings.Contains(content, forbidden) {
+				t.Errorf("%s contains forbidden API %q", name, forbidden)
+			}
+		}
+		calls := strings.Count(content, "local"+"Storage.getItem") + strings.Count(content, "local"+"Storage.setItem")
+		totalCalls := strings.Count(content, "local"+"Storage.")
+		if calls != totalCalls {
+			t.Errorf("%s calls localStorage with something other than getItem/setItem", name)
+		}
+		if strings.Contains(content, "local"+"Storage") && !strings.Contains(content, "'theme'") {
+			t.Errorf("%s touches localStorage without the 'theme' key", name)
+		}
+		for _, other := range []string{"'session'", "'auth'", "'token'", "'user'", "'credential'"} {
+			if strings.Contains(content, other) {
+				t.Errorf("%s references a non-theme storage key %q", name, other)
+			}
 		}
 	}
 }

@@ -127,6 +127,8 @@ func TestEmbeddedApplicationAssetsUseExactGetOnlyRoutes(t *testing.T) {
 		{method: http.MethodGet, path: "/", wantStatus: http.StatusOK, contentType: "text/html; charset=utf-8", contains: "用量查询"},
 		{method: http.MethodGet, path: "/app.css", wantStatus: http.StatusOK, contentType: "text/css; charset=utf-8", contains: ".spinner"},
 		{method: http.MethodGet, path: "/app.js", wantStatus: http.StatusOK, contentType: "text/javascript; charset=utf-8", contains: "fetch('/api/search'"},
+		{method: http.MethodGet, path: "/theme-init.js", wantStatus: http.StatusOK, contentType: "text/javascript; charset=utf-8", contains: "theme"},
+		{method: http.MethodGet, path: "/theme.js", wantStatus: http.StatusOK, contentType: "text/javascript; charset=utf-8", contains: "theme-toggle"},
 		{method: http.MethodHead, path: "/", wantStatus: http.StatusMethodNotAllowed},
 		{method: http.MethodGet, path: "/unknown", wantStatus: http.StatusNotFound},
 		{method: http.MethodGet, path: "/app.js/extra", wantStatus: http.StatusNotFound},

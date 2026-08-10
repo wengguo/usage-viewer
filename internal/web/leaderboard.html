@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>消耗排行榜 - 用量查询</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <script src="/theme-init.js"></script>
+  <link rel="stylesheet" href="/app.css">
+</head>
+<body class="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
+  <div class="flex min-h-screen">
+    <div id="sidebar-overlay" class="fixed inset-0 z-30 bg-slate-900/50 md:hidden" hidden></div>
+
+    <aside id="app-sidebar" class="fixed inset-y-0 left-0 z-40 flex w-60 -translate-x-full flex-col border-r border-slate-200 bg-white transition-transform duration-200 md:translate-x-0 dark:border-slate-800 dark:bg-slate-900">
+      <div class="flex h-14 items-center justify-between gap-2 border-b border-slate-200 px-4 dark:border-slate-800">
+        <div class="flex items-center gap-2">
+          <img src="/favicon.svg" alt="" class="h-7 w-7 flex-none rounded-md" width="28" height="28">
+          <span class="font-semibold">Sub2API</span>
+        </div>
+        <button id="sidebar-close" type="button" class="flex h-8 w-8 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100 md:hidden dark:text-slate-400 dark:hover:bg-slate-800" aria-label="关闭菜单">
+          <svg viewBox="0 0 20 20" fill="none" class="h-5 w-5" aria-hidden="true"><path d="M5 5l10 10M15 5L5 15" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+
+      <nav class="flex-1 space-y-1 px-3 py-4">
+        <a href="/" class="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800">
+          <svg viewBox="0 0 20 20" fill="none" class="h-5 w-5 flex-none" aria-hidden="true"><circle cx="9" cy="9" r="6" stroke="currentColor" stroke-width="1.6"/><path d="M14 14l4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+          <span>Key 查询</span>
+        </a>
+        <a href="/leaderboard" aria-current="page" class="flex items-center gap-3 rounded-lg bg-teal-50 px-3 py-2 text-sm font-medium text-teal-700 dark:bg-teal-900/40 dark:text-teal-300">
+          <svg viewBox="0 0 20 20" fill="none" class="h-5 w-5 flex-none" aria-hidden="true"><path d="M6 3h8v5a4 4 0 01-8 0V3z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M6 4H4a1 1 0 000 5h1M14 4h2a1 1 0 010 5h-1" stroke="currentColor" stroke-width="1.6"/><path d="M10 12v3M8 17h4M8 15.5h4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+          <span>排行榜</span>
+        </a>
+        <a href="/self" class="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800">
+          <svg viewBox="0 0 20 20" fill="none" class="h-5 w-5 flex-none" aria-hidden="true"><circle cx="10" cy="6.5" r="3.2" stroke="currentColor" stroke-width="1.6"/><path d="M4 17c0-3.3 2.7-5.5 6-5.5s6 2.2 6 5.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+          <span>自助查询</span>
+        </a>
+      </nav>
+
+      <div class="border-t border-slate-200 p-3 dark:border-slate-800">
+        <button type="button" data-theme-toggle class="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800">
+          <svg viewBox="0 0 20 20" fill="none" class="h-5 w-5 flex-none" aria-hidden="true"><circle cx="10" cy="10" r="4" stroke="currentColor" stroke-width="1.6"/><path d="M10 2v2M10 16v2M2 10h2M16 10h2M4.2 4.2l1.4 1.4M14.4 14.4l1.4 1.4M15.8 4.2l-1.4 1.4M5.6 14.4l-1.4 1.4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+          <span data-theme-label>浅色模式</span>
+        </button>
+      </div>
+    </aside>
+
+    <div class="flex-1 md:pl-60">
+      <header class="flex h-14 items-center gap-3 border-b border-slate-200 bg-white px-4 md:hidden dark:border-slate-800 dark:bg-slate-900">
+        <button id="sidebar-open" type="button" class="flex h-9 w-9 items-center justify-center rounded-md text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800" aria-label="打开菜单">
+          <svg viewBox="0 0 20 20" fill="none" class="h-5 w-5" aria-hidden="true"><path d="M3 5h14M3 10h14M3 15h14" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+        </button>
+        <span class="font-semibold">消耗排行榜</span>
+      </header>
+
+      <main class="mx-auto max-w-6xl px-4 py-8">
+        <div class="mb-6 flex flex-wrap items-center gap-3">
+          <h1 class="text-xl font-semibold">消耗排行榜</h1>
+          <label for="limit-select" class="ml-auto text-sm font-semibold text-slate-600 dark:text-slate-400">显示数量</label>
+          <select id="limit-select" class="h-9 rounded-lg border border-slate-300 bg-white px-2 text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100">
+            <option value="10" selected>Top 10</option>
+            <option value="20">Top 20</option>
+            <option value="50">Top 50</option>
+          </select>
+        </div>
+
+        <div class="status-region min-h-[3rem] py-3 text-sm text-slate-600 dark:text-slate-400" id="leaderboard-status" role="status" aria-live="polite"></div>
+
+        <div class="hidden grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4" id="leaderboard-grid">
+          <section class="rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900" data-window="1d">
+            <h2 class="mb-3 text-base font-semibold">今日榜</h2>
+            <ol class="space-y-2" data-list></ol>
+            <p class="text-sm text-slate-500 dark:text-slate-400" data-empty hidden>暂无数据</p>
+          </section>
+          <section class="rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900" data-window="3d">
+            <h2 class="mb-3 text-base font-semibold">3 天榜</h2>
+            <ol class="space-y-2" data-list></ol>
+            <p class="text-sm text-slate-500 dark:text-slate-400" data-empty hidden>暂无数据</p>
+          </section>
+          <section class="rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900" data-window="7d">
+            <h2 class="mb-3 text-base font-semibold">7 天榜</h2>
+            <ol class="space-y-2" data-list></ol>
+            <p class="text-sm text-slate-500 dark:text-slate-400" data-empty hidden>暂无数据</p>
+          </section>
+          <section class="rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900" data-window="30d">
+            <h2 class="mb-3 text-base font-semibold">30 天榜</h2>
+            <ol class="space-y-2" data-list></ol>
+            <p class="text-sm text-slate-500 dark:text-slate-400" data-empty hidden>暂无数据</p>
+          </section>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script src="/theme.js"></script>
+  <script src="/leaderboard.js" defer></script>
+</body>
+</html>

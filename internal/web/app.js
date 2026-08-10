@@ -15,6 +15,7 @@
   const resultsRegion = byID('results');
   const resultCount = byID('result-count');
   const keyBody = byID('key-body');
+  const keyCards = byID('key-cards');
   const todaySortButton = byID('sort-today-cost');
   const total30dSortButton = byID('sort-total-30d-cost');
   const todaySortHeader = byID('today-cost-header');
@@ -32,18 +33,18 @@
   let currentKeyId = 0;
 
   const setStatus = (region, kind, title, detail = '') => {
-    region.className = 'status-region';
-    if (kind === 'error') region.classList.add('error');
+    region.className = 'status-region min-h-[3rem] py-3 text-sm text-slate-600 dark:text-slate-400';
+    if (kind === 'error') region.className += ' border-l-4 border-red-600 bg-red-50 px-4 text-red-700 dark:border-red-500 dark:bg-red-950/40 dark:text-red-400';
     region.setAttribute('role', kind === 'error' ? 'alert' : 'status');
     region.textContent = '';
     if (!title) return;
     const heading = document.createElement('div');
-    heading.className = 'status-title';
+    heading.className = 'status-title font-semibold';
     heading.textContent = title;
     region.appendChild(heading);
     if (detail) {
       const body = document.createElement('div');
-      body.className = 'status-detail';
+      body.className = 'status-detail mt-1';
       body.textContent = detail;
       region.appendChild(body);
     }
@@ -62,6 +63,7 @@
 
   const clearRows = () => {
     while (keyBody.firstChild) keyBody.removeChild(keyBody.firstChild);
+    while (keyCards.firstChild) keyCards.removeChild(keyCards.firstChild);
   };
 
   const clearDisplayedResults = () => {
@@ -113,11 +115,27 @@
     if (!value) return '—';
     try { return new Date(value).toLocaleString(); } catch (_) { return value; }
   };
-  const addCell = (row, label, value, className = '') => {
+  const addCell = (row, label, value, kind = '') => {
     const cell = document.createElement('td');
     cell.dataset.label = label;
     cell.textContent = value;
-    if (className) cell.className = className;
+    cell.className = 'border-b border-slate-200 p-3 align-top dark:border-slate-800' +
+      (kind === 'numeric' ? ' whitespace-nowrap tabular-nums' : kind === 'breakable' ? ' max-w-[240px] break-words' : '');
+    row.appendChild(cell);
+  };
+
+  const statusBadgeClass = (status) => status === 'active'
+    ? 'inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'
+    : 'inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300';
+
+  const addStatusCell = (row, label, status) => {
+    const cell = document.createElement('td');
+    cell.dataset.label = label;
+    cell.className = 'border-b border-slate-200 p-3 align-top dark:border-slate-800';
+    const badge = document.createElement('span');
+    badge.className = statusBadgeClass(status);
+    badge.textContent = status;
+    cell.appendChild(badge);
     row.appendChild(cell);
   };
 
@@ -126,9 +144,14 @@
     payload.items.every((item) => hasExactKeys(item, ['date', 'actualCost']) &&
       typeof item.date === 'string' && isCost(item.actualCost));
 
+  const chartPalette = () => document.documentElement.classList.contains('dark')
+    ? { grid: '#334155', axisText: '#94a3b8', line: '#2dd4bf', point: '#2dd4bf', tooltipBg: '#0f172a', tooltipDate: '#5eead4', tooltipCost: '#fff', hoverPoint: '#f87171' }
+    : { grid: '#e9eaeb', axisText: '#52606d', line: '#0f766e', point: '#0f766e', tooltipBg: '#17202a', tooltipDate: '#e7f5f2', tooltipCost: '#fff', hoverPoint: '#b42318' };
+
   const renderLineChart = (items) => {
     chartWrap.textContent = '';
     if (items.length === 0) return;
+    const palette = chartPalette();
     const width = 760;
     const height = 240;
     const padL = 56;
@@ -157,7 +180,7 @@
       line.setAttribute('y1', String(yy));
       line.setAttribute('x2', String(width - padR));
       line.setAttribute('y2', String(yy));
-      line.setAttribute('stroke', '#e9eaeb');
+      line.setAttribute('stroke', palette.grid);
       line.setAttribute('stroke-width', '1');
       svg.appendChild(line);
       const label = document.createElementNS(svgNs, 'text');
@@ -165,7 +188,7 @@
       label.setAttribute('y', String(yy + 4));
       label.setAttribute('text-anchor', 'end');
       label.setAttribute('font-size', '11');
-      label.setAttribute('fill', '#52606d');
+      label.setAttribute('fill', palette.axisText);
       label.textContent = value.toFixed(2);
       svg.appendChild(label);
     }
@@ -178,7 +201,7 @@
       text.setAttribute('y', String(height - padB + 18));
       text.setAttribute('text-anchor', 'middle');
       text.setAttribute('font-size', '11');
-      text.setAttribute('fill', '#52606d');
+      text.setAttribute('fill', palette.axisText);
       text.textContent = items[i].date;
       svg.appendChild(text);
     });
@@ -188,7 +211,7 @@
     const polyline = document.createElementNS(svgNs, 'polyline');
     polyline.setAttribute('points', points.join(' '));
     polyline.setAttribute('fill', 'none');
-    polyline.setAttribute('stroke', '#0f766e');
+    polyline.setAttribute('stroke', palette.line);
     polyline.setAttribute('stroke-width', '2');
     polyline.setAttribute('stroke-linejoin', 'round');
     polyline.setAttribute('stroke-linecap', 'round');
@@ -201,7 +224,7 @@
       circle.setAttribute('cx', String(x(i)));
       circle.setAttribute('cy', String(y(+item.actualCost || 0)));
       circle.setAttribute('r', '3');
-      circle.setAttribute('fill', '#0f766e');
+      circle.setAttribute('fill', palette.point);
       svg.appendChild(circle);
       circles.push(circle);
       const hit = document.createElementNS(svgNs, 'circle');
@@ -217,14 +240,14 @@
     tooltip.setAttribute('visibility', 'hidden');
     const tooltipBg = document.createElementNS(svgNs, 'rect');
     tooltipBg.setAttribute('rx', '4');
-    tooltipBg.setAttribute('fill', '#17202a');
+    tooltipBg.setAttribute('fill', palette.tooltipBg);
     const tooltipDate = document.createElementNS(svgNs, 'text');
     tooltipDate.setAttribute('font-size', '11');
-    tooltipDate.setAttribute('fill', '#e7f5f2');
+    tooltipDate.setAttribute('fill', palette.tooltipDate);
     const tooltipCost = document.createElementNS(svgNs, 'text');
     tooltipCost.setAttribute('font-size', '12');
     tooltipCost.setAttribute('font-weight', '600');
-    tooltipCost.setAttribute('fill', '#fff');
+    tooltipCost.setAttribute('fill', palette.tooltipCost);
     tooltip.appendChild(tooltipBg);
     tooltip.appendChild(tooltipDate);
     tooltip.appendChild(tooltipCost);
@@ -235,13 +258,13 @@
       if (activeIndex === index) return;
       if (activeIndex >= 0) {
         circles[activeIndex].setAttribute('r', '3');
-        circles[activeIndex].setAttribute('fill', '#0f766e');
+        circles[activeIndex].setAttribute('fill', palette.point);
       }
       activeIndex = index;
       const px = x(index);
       const py = y(+items[index].actualCost || 0);
       circles[index].setAttribute('r', '5');
-      circles[index].setAttribute('fill', '#b42318');
+      circles[index].setAttribute('fill', palette.hoverPoint);
       tooltipDate.textContent = items[index].date;
       tooltipCost.textContent = `$${(+items[index].actualCost || 0).toFixed(4)}`;
       const tw = 120;
@@ -263,7 +286,7 @@
     const hideTooltip = () => {
       if (activeIndex >= 0) {
         circles[activeIndex].setAttribute('r', '3');
-        circles[activeIndex].setAttribute('fill', '#0f766e');
+        circles[activeIndex].setAttribute('fill', palette.point);
       }
       activeIndex = -1;
       tooltip.setAttribute('visibility', 'hidden');
@@ -302,8 +325,8 @@
   };
 
   const setDialogStatus = (kind, message) => {
-    dialogStatus.className = 'dialog-status';
-    if (kind === 'error') dialogStatus.classList.add('error');
+    dialogStatus.className = 'dialog-status min-h-[2rem] px-5 pb-4 text-sm text-slate-600 dark:text-slate-400';
+    if (kind === 'error') dialogStatus.className += ' border-l-4 border-red-600 bg-red-50 text-red-700 dark:border-red-500 dark:bg-red-950/40 dark:text-red-400';
     dialogStatus.setAttribute('role', kind === 'error' ? 'alert' : 'status');
     dialogStatus.textContent = message;
   };
@@ -368,20 +391,77 @@
       addCell(row, '额度已用 / 总额度', `${formatCost(item.quotaUsed)} / ${formatQuota(item.quota)}`, 'numeric');
       addCell(row, '上次使用时间', formatTimestamp(item.lastUsedAt), 'breakable');
       addCell(row, '过期时间', formatTimestamp(item.expiresAt), 'breakable');
-      addCell(row, '状态', item.status, 'breakable');
+      addStatusCell(row, '状态', item.status);
       addCell(row, '创建时间', formatTimestamp(item.createdAt), 'breakable');
       const actionCell = document.createElement('td');
       actionCell.dataset.label = '每日用量';
+      actionCell.className = 'border-b border-slate-200 p-3 align-top dark:border-slate-800';
       const button = document.createElement('button');
       button.type = 'button';
-      button.className = 'row-action';
+      button.className = 'row-action inline-flex h-8 min-w-[76px] items-center justify-center rounded-md border border-teal-700 px-3 text-sm font-semibold text-teal-700 hover:bg-teal-700 hover:text-white dark:border-teal-600 dark:text-teal-400 dark:hover:bg-teal-600 dark:hover:text-white';
       button.textContent = '每日用量';
       button.addEventListener('click', () => openUsageDialog(item.id, item.name));
       actionCell.appendChild(button);
       row.appendChild(actionCell);
       keyBody.appendChild(row);
     });
+    renderKeyCards();
     resultsRegion.hidden = false;
+  };
+
+  const addCardRow = (card, label, value) => {
+    const row = document.createElement('div');
+    row.className = 'grid grid-cols-[minmax(96px,40%)_1fr] gap-3 py-1 text-sm';
+    const labelCell = document.createElement('div');
+    labelCell.className = 'font-semibold text-slate-600 dark:text-slate-400';
+    labelCell.textContent = label;
+    const valueCell = document.createElement('div');
+    valueCell.className = 'break-words';
+    valueCell.textContent = value;
+    row.appendChild(labelCell);
+    row.appendChild(valueCell);
+    card.appendChild(row);
+  };
+
+  const addCardStatusRow = (card, label, status) => {
+    const row = document.createElement('div');
+    row.className = 'grid grid-cols-[minmax(96px,40%)_1fr] gap-3 py-1 text-sm';
+    const labelCell = document.createElement('div');
+    labelCell.className = 'font-semibold text-slate-600 dark:text-slate-400';
+    labelCell.textContent = label;
+    const valueCell = document.createElement('div');
+    const badge = document.createElement('span');
+    badge.className = statusBadgeClass(status);
+    badge.textContent = status;
+    valueCell.appendChild(badge);
+    row.appendChild(labelCell);
+    row.appendChild(valueCell);
+    card.appendChild(row);
+  };
+
+  const renderKeyCards = () => {
+    while (keyCards.firstChild) keyCards.removeChild(keyCards.firstChild);
+    state.results.forEach((item) => {
+      const card = document.createElement('article');
+      card.className = 'rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900';
+      addCardRow(card, '名称', item.name);
+      addCardRow(card, '分组', item.groupName || '无分组');
+      addCardRow(card, '当前并发', String(item.currentConcurrency));
+      addCardRow(card, '今日用量', `$${formatCost(item.todayCost)}`);
+      addCardRow(card, '近30天用量', `$${formatCost(item.total30dCost)}`);
+      addCardRow(card, '额度已用 / 总额度', `${formatCost(item.quotaUsed)} / ${formatQuota(item.quota)}`);
+      addCardRow(card, '上次使用时间', formatTimestamp(item.lastUsedAt));
+      addCardRow(card, '过期时间', formatTimestamp(item.expiresAt));
+      addCardStatusRow(card, '状态', item.status);
+      addCardRow(card, '创建时间', formatTimestamp(item.createdAt));
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'row-action mt-3 inline-flex h-8 w-full items-center justify-center rounded-md border border-teal-700 text-sm font-semibold text-teal-700 hover:bg-teal-700 hover:text-white dark:border-teal-600 dark:text-teal-400 dark:hover:bg-teal-600 dark:hover:text-white';
+      button.textContent = '每日用量';
+      button.addEventListener('click', () => openUsageDialog(item.id, item.name));
+      card.appendChild(button);
+      keyCards.appendChild(card);
+    });
   };
 
   const updateSortControls = () => {
