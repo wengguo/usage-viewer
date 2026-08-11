@@ -7,6 +7,7 @@
   const button = byID('self-button');
   const spinner = byID('self-spinner');
   const statusRegion = byID('self-status');
+  const placeholder = byID('self-placeholder');
   const card = byID('self-card');
   const nameEl = byID('self-name');
   const groupEl = byID('self-group');
@@ -18,6 +19,10 @@
   const quotaPercentEl = byID('self-quota-percent');
   const quotaBarEl = byID('self-quota-bar');
   const chartWrap = byID('self-chart-wrap');
+  const chartTitleEl = byID('self-chart-title');
+  const chartDaysSelect = byID('self-chart-days');
+
+  let lastDailyUsage = [];
 
   const setStatus = (kind, title) => {
     statusRegion.className = 'status-region min-h-[3rem] py-3 text-sm text-slate-600 dark:text-slate-400';
@@ -70,7 +75,7 @@
 
   const statusBadgeClass = (status) => status === 'active'
     ? 'rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'
-    : 'rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300';
+    : 'rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700 dark:bg-amber-900/30 dark:text-amber-300';
 
   const renderCard = (result) => {
     nameEl.textContent = result.name;
@@ -88,8 +93,23 @@
     quotaPercentEl.textContent = quota > 0 ? `${percent.toFixed(1)}%` : '无限制';
     quotaBarEl.style.width = `${percent}%`;
 
-    renderChart(result.dailyUsage);
+    lastDailyUsage = result.dailyUsage;
+    renderChartForSelectedDays();
+    placeholder.classList.add('hidden');
     card.hidden = false;
+  };
+
+  const cutoffDate = (days) => {
+    const now = new Date();
+    const cutoff = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - (days - 1)));
+    return cutoff.toISOString().slice(0, 10);
+  };
+
+  const renderChartForSelectedDays = () => {
+    const days = +chartDaysSelect.value || 30;
+    chartTitleEl.textContent = `近 ${days} 天用量`;
+    const cutoff = cutoffDate(days);
+    renderChart(lastDailyUsage.filter((point) => point.date >= cutoff));
   };
 
   const chartPalette = () => document.documentElement.classList.contains('dark')
@@ -116,7 +136,7 @@
     const svg = document.createElementNS(svgNs, 'svg');
     svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
     svg.setAttribute('role', 'img');
-    svg.setAttribute('aria-label', '近 30 天用量折线图');
+    svg.setAttribute('aria-label', '用量折线图');
 
     const ySteps = 3;
     for (let step = 0; step <= ySteps; step++) {
@@ -181,6 +201,7 @@
     setBusy(true);
     setStatus('loading', '正在查询...');
     card.hidden = true;
+    placeholder.classList.add('hidden');
     try {
       const response = await fetch('/api/self-lookup', {
         method: 'POST',
@@ -190,6 +211,7 @@
       if (sequence !== requestSequence) return;
       if (response.status === 404) {
         setStatus('empty', '未找到匹配的 Key');
+        placeholder.classList.remove('hidden');
         return;
       }
       if (!response.ok) throw new Error('self-lookup failed');
@@ -199,6 +221,7 @@
       setStatus('ready', '');
     } catch (_) {
       setStatus('error', '查询失败，请重试');
+      placeholder.classList.remove('hidden');
     } finally {
       if (sequence === requestSequence) setBusy(false);
     }
@@ -216,4 +239,6 @@
     credentialInput.removeAttribute('aria-invalid');
     submitLookup(validation.value);
   });
+
+  chartDaysSelect.addEventListener('change', renderChartForSelectedDays);
 })();

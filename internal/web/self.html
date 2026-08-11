@@ -24,20 +24,21 @@
       </div>
 
       <nav class="flex-1 space-y-1 px-3 py-4">
-        <a href="/leaderboard" class="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800">
+        <a href="/leaderboard" data-nav-auth class="hidden flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800">
           <svg viewBox="0 0 20 20" fill="none" class="h-5 w-5 flex-none" aria-hidden="true"><path d="M6 3h8v5a4 4 0 01-8 0V3z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M6 4H4a1 1 0 000 5h1M14 4h2a1 1 0 010 5h-1" stroke="currentColor" stroke-width="1.6"/><path d="M10 12v3M8 17h4M8 15.5h4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
           <span>排行榜</span>
         </a>
-        <a href="/" class="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800">
+        <a href="/keys" data-nav-auth class="hidden flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800">
           <svg viewBox="0 0 20 20" fill="none" class="h-5 w-5 flex-none" aria-hidden="true"><circle cx="9" cy="9" r="6" stroke="currentColor" stroke-width="1.6"/><path d="M14 14l4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
           <span>Key 查询</span>
         </a>
-        <a href="/self" aria-current="page" class="flex items-center gap-3 rounded-lg bg-teal-50 px-3 py-2 text-sm font-medium text-teal-700 dark:bg-teal-900/40 dark:text-teal-300">
+        <a href="/" aria-current="page" class="flex items-center gap-3 rounded-lg bg-teal-50 px-3 py-2 text-sm font-medium text-teal-700 dark:bg-teal-900/40 dark:text-teal-300">
           <svg viewBox="0 0 20 20" fill="none" class="h-5 w-5 flex-none" aria-hidden="true"><circle cx="10" cy="6.5" r="3.2" stroke="currentColor" stroke-width="1.6"/><path d="M4 17c0-3.3 2.7-5.5 6-5.5s6 2.2 6 5.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
           <span>自助查询</span>
         </a>
       </nav>
 
+      <div class="border-t border-slate-200 p-3 dark:border-slate-800" id="nav-auth-control"></div>
       <div class="border-t border-slate-200 p-3 dark:border-slate-800">
         <button type="button" data-theme-toggle class="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800">
           <svg viewBox="0 0 20 20" fill="none" class="h-5 w-5 flex-none" aria-hidden="true"><circle cx="10" cy="10" r="4" stroke="currentColor" stroke-width="1.6"/><path d="M10 2v2M10 16v2M2 10h2M16 10h2M4.2 4.2l1.4 1.4M14.4 14.4l1.4 1.4M15.8 4.2l-1.4 1.4M5.6 14.4l-1.4 1.4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
@@ -54,7 +55,7 @@
         <span class="font-semibold">自助查询</span>
       </header>
 
-      <main class="mx-auto max-w-2xl px-4 py-8">
+      <main class="px-6 py-8">
         <h1 class="mb-2 text-xl font-semibold">自助查询</h1>
         <p class="mb-6 text-sm text-slate-600 dark:text-slate-400">输入你自己的 Key 或名称，只查看这一条记录。</p>
 
@@ -71,49 +72,68 @@
 
         <div class="status-region min-h-[3rem] py-3 text-sm text-slate-600 dark:text-slate-400" id="self-status" role="status" aria-live="polite"></div>
 
-        <article class="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900" id="self-card" hidden>
-          <div class="flex items-start justify-between gap-3">
+        <div class="flex flex-col items-center gap-3 rounded-lg border-2 border-dashed border-slate-200 px-6 py-14 text-center dark:border-slate-800" id="self-placeholder">
+          <svg viewBox="0 0 20 20" fill="none" class="h-10 w-10 text-slate-300 dark:text-slate-700" aria-hidden="true"><circle cx="10" cy="6.5" r="3.2" stroke="currentColor" stroke-width="1.6"/><path d="M4 17c0-3.3 2.7-5.5 6-5.5s6 2.2 6 5.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+          <p class="text-sm text-slate-500 dark:text-slate-400">输入你的 Key 或名称，然后点击查询</p>
+        </div>
+
+        <article class="rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900" id="self-card" hidden>
+          <div class="flex items-start justify-between gap-3 p-5">
             <div>
               <h2 class="text-lg font-semibold" id="self-name"></h2>
               <p class="text-sm text-slate-500 dark:text-slate-400" id="self-group"></p>
             </div>
-            <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300" id="self-status-badge"></span>
+            <span class="rounded-full px-3 py-1 text-xs font-semibold" id="self-status-badge"></span>
           </div>
-          <dl class="mt-4 grid grid-cols-2 gap-3 text-sm">
+          <dl class="grid grid-cols-2 gap-3 border-t border-slate-100 px-5 py-3 text-sm dark:border-slate-800">
             <div>
               <dt class="font-semibold text-slate-600 dark:text-slate-400">Key</dt>
               <dd class="tabular-nums" id="self-key"></dd>
-            </div>
-            <div>
-              <dt class="font-semibold text-slate-600 dark:text-slate-400">今日用量</dt>
-              <dd class="tabular-nums" id="self-today-cost"></dd>
-            </div>
-            <div>
-              <dt class="font-semibold text-slate-600 dark:text-slate-400">额度已用 / 总额度</dt>
-              <dd class="tabular-nums" id="self-quota"></dd>
             </div>
             <div>
               <dt class="font-semibold text-slate-600 dark:text-slate-400">过期时间</dt>
               <dd id="self-expires"></dd>
             </div>
           </dl>
-          <div class="mt-4">
-            <div class="mb-1 flex justify-between text-xs text-slate-500 dark:text-slate-400">
-              <span>额度使用进度</span>
-              <span id="self-quota-percent"></span>
+          <div class="grid grid-cols-2 gap-3 bg-slate-50 p-5 dark:bg-slate-800/40">
+            <div class="rounded-lg bg-white p-4 dark:bg-slate-900">
+              <div class="text-xs font-semibold text-slate-500 dark:text-slate-400">今日用量</div>
+              <div class="mt-1 text-2xl font-bold tabular-nums text-teal-700 dark:text-teal-400" id="self-today-cost"></div>
             </div>
-            <div class="h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
-              <div class="h-full rounded-full bg-teal-700 dark:bg-teal-500" id="self-quota-bar" style="width: 0%"></div>
+            <div class="rounded-lg bg-white p-4 dark:bg-slate-900">
+              <div class="text-xs font-semibold text-slate-500 dark:text-slate-400">额度已用 / 总额度</div>
+              <div class="mt-1 text-2xl font-bold tabular-nums text-teal-700 dark:text-teal-400" id="self-quota"></div>
+            </div>
+            <div class="col-span-2">
+              <div class="mb-1 flex justify-between text-xs text-slate-500 dark:text-slate-400">
+                <span>额度使用进度</span>
+                <span id="self-quota-percent"></span>
+              </div>
+              <div class="h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
+                <div class="h-full rounded-full bg-teal-700 dark:bg-teal-500" id="self-quota-bar" style="width: 0%"></div>
+              </div>
             </div>
           </div>
-          <h3 class="mt-5 mb-2 text-sm font-semibold text-slate-600 dark:text-slate-400">近 30 天用量</h3>
-          <div class="chart-wrap" id="self-chart-wrap"></div>
+          <div class="border-t border-slate-100 p-5 dark:border-slate-800">
+            <div class="mb-2 flex flex-wrap items-center gap-3">
+              <h3 class="text-sm font-semibold text-slate-600 dark:text-slate-400" id="self-chart-title">近 30 天用量</h3>
+              <label for="self-chart-days" class="sr-only">天数</label>
+              <select id="self-chart-days" class="ml-auto h-8 rounded-lg border border-slate-300 bg-white px-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100">
+                <option value="1">近 1 天</option>
+                <option value="3">近 3 天</option>
+                <option value="7">近 7 天</option>
+                <option value="30" selected>近 30 天</option>
+              </select>
+            </div>
+            <div class="chart-wrap" id="self-chart-wrap"></div>
+          </div>
         </article>
       </main>
     </div>
   </div>
 
   <script src="/theme.js"></script>
+  <script src="/nav.js" defer></script>
   <script src="/self.js" defer></script>
 </body>
 </html>
