@@ -6,6 +6,7 @@ import (
 	"context"
 	"io"
 	"net/http"
+	"net/http/cookiejar"
 	"os/exec"
 	"strings"
 	"syscall"
@@ -53,7 +54,19 @@ func TestRuntimeServesCurrentTargetSearchAndRejectsCraftedRequests(t *testing.T)
 	_ = rootResponse.Body.Close()
 	require.NoError(t, err)
 	require.Equal(t, http.StatusOK, rootResponse.StatusCode)
-	require.Contains(t, string(rootBody), "Find a target")
+	require.Contains(t, string(rootBody), "自助查询")
+
+	jar, jarErr := cookiejar.New(nil)
+	require.NoError(t, jarErr)
+	client := &http.Client{Jar: jar}
+	loginRequest, loginRequestErr := http.NewRequest(http.MethodPost, "http://"+listenAddress+"/api/login", strings.NewReader(`{"username":"admin","password":"usage-viewer-2026"}`))
+	require.NoError(t, loginRequestErr)
+	loginRequest.Header.Set("Content-Type", "application/json")
+	loginResponse, loginErr := client.Do(loginRequest)
+	require.NoError(t, loginErr)
+	_, _ = io.Copy(io.Discard, loginResponse.Body)
+	_ = loginResponse.Body.Close()
+	require.Equal(t, http.StatusOK, loginResponse.StatusCode)
 
 	tests := []struct {
 		name       string
@@ -77,7 +90,7 @@ func TestRuntimeServesCurrentTargetSearchAndRejectsCraftedRequests(t *testing.T)
 			if tt.origin != "" {
 				request.Header.Set("Origin", tt.origin)
 			}
-			response, requestErr := http.DefaultClient.Do(request)
+			response, requestErr := client.Do(request)
 			require.NoError(t, requestErr)
 			body, readErr := io.ReadAll(response.Body)
 			_ = response.Body.Close()

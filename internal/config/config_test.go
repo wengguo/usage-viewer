@@ -68,6 +68,22 @@ func TestLoadUsesConservativeDefaults(t *testing.T) {
 	if cfg.DatabasePoolMaxConns != 4 || cfg.DatabasePoolMinConns != 0 {
 		t.Fatalf("pool defaults = min %d, max %d", cfg.DatabasePoolMinConns, cfg.DatabasePoolMaxConns)
 	}
+	if cfg.AuthUsername != "" || cfg.AuthPassword != "" {
+		t.Fatalf("auth defaults = %q, %q, want empty (handler applies its own placeholder)", cfg.AuthUsername, cfg.AuthPassword)
+	}
+}
+
+func TestLoadPreservesExplicitAuthCredentials(t *testing.T) {
+	environment := requiredEnvironment()
+	environment[authUsernameKey] = "operator"
+	environment[authPasswordKey] = "auth-secret-sentinel"
+	cfg, err := Load(mapLookup(environment))
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	if cfg.AuthUsername != "operator" || cfg.AuthPassword != "auth-secret-sentinel" {
+		t.Fatalf("auth credentials = %q, %q", cfg.AuthUsername, cfg.AuthPassword)
+	}
 }
 
 func TestValidateListenAddressRequiresMatchedAcknowledgement(t *testing.T) {

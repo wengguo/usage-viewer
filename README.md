@@ -38,7 +38,7 @@ go build -trimpath -o dist/sub2api-usage-viewer ./cmd/viewer
 http://127.0.0.1:8081/
 ```
 
-无登录。默认仅 loopback；非 loopback 绑定需显式确认（见环境变量）。
+默认首页「自助查询」无需登录；「Key 查询」「排行榜」需登录后查看，默认账号 `admin`，默认密码 `usage-viewer-2026`（内置占位值，仅供本地测试；可用环境变量 `SUB2API_USAGE_VIEWER_AUTH_USERNAME` / `SUB2API_USAGE_VIEWER_AUTH_PASSWORD` 覆盖，正式部署前必须显式设置为真实密码，见环境变量一节）。默认仅 loopback；非 loopback 绑定需显式确认（见环境变量）。
 
 镜像：
 
@@ -163,6 +163,17 @@ export SUB2API_USAGE_VIEWER_DATA_DIR='./data'
 示例密码为占位符。远程 TCP 须 `sslmode=verify-full` 且非空 `sslrootcert`；可选 `sslcert` / `sslkey`。不接受其它 URL query。loopback / Unix socket 可用本地合适 SSL 模式。
 
 共享账号可不设上述 URL/ROLE，走凭证发现。
+
+### 登录账号密码（可选）
+
+默认账号：`admin`；默认密码：`usage-viewer-2026`（内置占位值，仅供本地测试）。
+
+```sh
+export SUB2API_USAGE_VIEWER_AUTH_USERNAME='admin'
+export SUB2API_USAGE_VIEWER_AUTH_PASSWORD='请改成真实密码'
+```
+
+`SUB2API_USAGE_VIEWER_AUTH_USERNAME` / `SUB2API_USAGE_VIEWER_AUTH_PASSWORD` 覆盖「Key 查询」「排行榜」的登录账号密码；正式部署前必须显式设置为真实密码。「自助查询」页面本身始终无需登录。
 
 ### 共享账号常用变量
 

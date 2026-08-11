@@ -20,13 +20,23 @@ func TestSearchEndpointReturnsOnlyKeyTargetSpecificSafeProjection(t *testing.T) 
 	wantBody := `{"targetType":"key","results":[{"id":17,"name":"wengguo","groupName":"default","currentConcurrency":2,"todayCost":"1.25","total30dCost":"99.5","quota":"5000","quotaUsed":"10","lastUsedAt":"2026-08-04T00:00:00Z","expiresAt":"","status":"active","createdAt":"2026-08-05T00:00:00Z"}],"page":1,"pageSize":20,"total":1}` + "\n"
 
 	service := &fakeSearchService{results: results}
-	response := serveRequest(NewHandler(service), http.MethodPost, "/api/search", body, "application/json", "")
+	application := NewHandler(service)
+	cookie := loginCookie(t, application)
+	response := serveRequestWithCookie(application, http.MethodPost, "/api/search", body, "application/json", "", cookie)
 	if response.Code != http.StatusOK || response.Body.String() != wantBody || service.calls != 1 {
 		t.Fatalf("status=%d body=%q calls=%d", response.Code, response.Body.String(), service.calls)
 	}
 	assertSecurityHeaders(t, response.Result())
 	if strings.Contains(strings.ToLower(response.Body.String()), "password") {
 		t.Fatalf("response disclosed forbidden field: %q", response.Body.String())
+	}
+}
+
+func TestSearchEndpointRejectsUnauthenticatedCallers(t *testing.T) {
+	service := &fakeSearchService{}
+	response := serveRequest(NewHandler(service), http.MethodPost, "/api/search", `{"targetType":"key","query":"ok"}`, "application/json", "")
+	if response.Code != http.StatusUnauthorized || service.calls != 0 {
+		t.Fatalf("status=%d calls=%d body=%q", response.Code, service.calls, response.Body.String())
 	}
 }
 
@@ -56,7 +66,9 @@ func TestSearchEndpointRejectsUnsafeRequestShapesBeforeService(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			service := &fakeSearchService{}
-			response := serveRequest(NewHandler(service), tt.method, "/api/search", tt.body, tt.contentType, tt.origin)
+			application := NewHandler(service)
+			cookie := loginCookie(t, application)
+			response := serveRequestWithCookie(application, tt.method, "/api/search", tt.body, tt.contentType, tt.origin, cookie)
 			if response.Code != tt.wantStatus || service.calls != 0 {
 				t.Fatalf("status=%d calls=%d body=%q", response.Code, service.calls, response.Body.String())
 			}
@@ -73,7 +85,9 @@ func TestSearchEndpointRejectsUnsafeRequestShapesBeforeService(t *testing.T) {
 
 func TestSearchEndpointDefaultsToFirstUnfilteredPageAndAcceptsPagination(t *testing.T) {
 	service := &fakeSearchService{results: search.Results{Page: 2, PageSize: search.PageSize, Total: 23}}
-	response := serveRequest(NewHandler(service), http.MethodPost, "/api/search", `{"targetType":"key","page":2,"sortBy":"todayCost","sortDirection":"asc"}`, "application/json", "")
+	application := NewHandler(service)
+	cookie := loginCookie(t, application)
+	response := serveRequestWithCookie(application, http.MethodPost, "/api/search", `{"targetType":"key","page":2,"sortBy":"todayCost","sortDirection":"asc"}`, "application/json", "", cookie)
 	if response.Code != http.StatusOK || service.calls != 1 {
 		t.Fatalf("status=%d calls=%d", response.Code, service.calls)
 	}
@@ -88,13 +102,16 @@ func TestSearchEndpointDefaultsToFirstUnfilteredPageAndAcceptsPagination(t *test
 
 func TestSearchEndpointAcceptsSameOriginAndSanitizesServiceFailures(t *testing.T) {
 	service := &fakeSearchService{err: errors.New("database-raw-secret-sentinel")}
-	response := serveRequest(
-		NewHandler(service),
+	application := NewHandler(service)
+	cookie := loginCookie(t, application)
+	response := serveRequestWithCookie(
+		application,
 		http.MethodPost,
 		"/api/search",
 		`{"targetType":"key","query":"valid name"}`,
 		"application/json; charset=utf-8",
 		"http://example.com",
+		cookie,
 	)
 	if response.Code != http.StatusServiceUnavailable || service.calls != 1 {
 		t.Fatalf("status=%d calls=%d", response.Code, service.calls)
@@ -124,11 +141,14 @@ func TestEmbeddedApplicationAssetsUseExactGetOnlyRoutes(t *testing.T) {
 		contentType string
 		contains    string
 	}{
-		{method: http.MethodGet, path: "/", wantStatus: http.StatusOK, contentType: "text/html; charset=utf-8", contains: "用量查询"},
+		{method: http.MethodGet, path: "/", wantStatus: http.StatusOK, contentType: "text/html; charset=utf-8", contains: "自助查询"},
 		{method: http.MethodGet, path: "/app.css", wantStatus: http.StatusOK, contentType: "text/css; charset=utf-8", contains: ".spinner"},
 		{method: http.MethodGet, path: "/app.js", wantStatus: http.StatusOK, contentType: "text/javascript; charset=utf-8", contains: "fetch('/api/search'"},
 		{method: http.MethodGet, path: "/theme-init.js", wantStatus: http.StatusOK, contentType: "text/javascript; charset=utf-8", contains: "theme"},
 		{method: http.MethodGet, path: "/theme.js", wantStatus: http.StatusOK, contentType: "text/javascript; charset=utf-8", contains: "theme-toggle"},
+		{method: http.MethodGet, path: "/keys", wantStatus: http.StatusFound},
+		{method: http.MethodGet, path: "/leaderboard", wantStatus: http.StatusFound},
+		{method: http.MethodGet, path: "/login", wantStatus: http.StatusOK, contentType: "text/html; charset=utf-8", contains: "登录"},
 		{method: http.MethodHead, path: "/", wantStatus: http.StatusMethodNotAllowed},
 		{method: http.MethodGet, path: "/unknown", wantStatus: http.StatusNotFound},
 		{method: http.MethodGet, path: "/app.js/extra", wantStatus: http.StatusNotFound},
@@ -152,19 +172,26 @@ func TestEmbeddedApplicationAssetsUseExactGetOnlyRoutes(t *testing.T) {
 
 func TestSearchRequestContextReachesService(t *testing.T) {
 	service := &fakeSearchService{}
+	application := NewHandler(service)
+	cookie := loginCookie(t, application)
 	request := httptest.NewRequest(http.MethodPost, "http://example.com/api/search", strings.NewReader(`{"targetType":"key","query":"person"}`))
 	request.Header.Set("Content-Type", "application/json")
+	request.AddCookie(cookie)
 	ctx, cancel := context.WithCancel(request.Context())
 	cancel()
 	request = request.WithContext(ctx)
 	response := httptest.NewRecorder()
-	NewHandler(service).ServeHTTP(response, request)
+	application.ServeHTTP(response, request)
 	if service.calls != 1 || !errors.Is(service.contextErr, context.Canceled) {
 		t.Fatalf("calls=%d context error=%v", service.calls, service.contextErr)
 	}
 }
 
 func serveRequest(handler http.Handler, method, path, body, contentType, origin string) *httptest.ResponseRecorder {
+	return serveRequestWithCookie(handler, method, path, body, contentType, origin, nil)
+}
+
+func serveRequestWithCookie(handler http.Handler, method, path, body, contentType, origin string, cookie *http.Cookie) *httptest.ResponseRecorder {
 	request := httptest.NewRequest(method, "http://example.com"+path, strings.NewReader(body))
 	if contentType != "" {
 		request.Header.Set("Content-Type", contentType)
@@ -172,9 +199,30 @@ func serveRequest(handler http.Handler, method, path, body, contentType, origin 
 	if origin != "" {
 		request.Header.Set("Origin", origin)
 	}
+	if cookie != nil {
+		request.AddCookie(cookie)
+	}
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, request)
 	return response
+}
+
+// loginCookie logs in against application (which must retain its own
+// in-memory session store across calls, i.e. the same handler instance used
+// for the request under test) and returns the resulting session cookie.
+func loginCookie(t *testing.T, application http.Handler) *http.Cookie {
+	t.Helper()
+	response := serveRequest(application, http.MethodPost, "/api/login", `{"username":"admin","password":"usage-viewer-2026"}`, "application/json", "")
+	if response.Code != http.StatusOK {
+		t.Fatalf("login failed: status=%d body=%q", response.Code, response.Body.String())
+	}
+	for _, cookie := range response.Result().Cookies() {
+		if cookie.Name == sessionCookieName {
+			return cookie
+		}
+	}
+	t.Fatal("no session cookie returned by login")
+	return nil
 }
 
 func assertSecurityHeaders(t *testing.T, response *http.Response) {

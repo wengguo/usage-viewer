@@ -27,6 +27,7 @@ type handler struct {
 	dailyUsage  DailyUsageService
 	leaderboard LeaderboardService
 	selfLookup  SelfLookupService
+	sessions    *sessionStore
 }
 
 func NewHandler(searchService SearchService) http.Handler {
@@ -38,13 +39,16 @@ func NewHandlerWithDailyUsage(searchService SearchService, dailyUsageService Dai
 }
 
 func NewFullHandler(searchService SearchService, dailyUsageService DailyUsageService, leaderboardService LeaderboardService, selfLookupService SelfLookupService) http.Handler {
-	application := &handler{search: searchService, dailyUsage: dailyUsageService, leaderboard: leaderboardService, selfLookup: selfLookupService}
+	application := &handler{search: searchService, dailyUsage: dailyUsageService, leaderboard: leaderboardService, selfLookup: selfLookupService, sessions: newSessionStore()}
 	mux := http.NewServeMux()
 	mux.HandleFunc("/livez", serveHealth)
 	mux.HandleFunc("/readyz", serveHealth)
-	mux.HandleFunc("/api/search", application.serveSearch)
-	mux.HandleFunc("/api/key-usage", application.serveDailyUsage)
-	mux.HandleFunc("/api/leaderboard", application.serveLeaderboard)
+	mux.HandleFunc("/api/login", application.serveLogin)
+	mux.HandleFunc("/api/logout", application.serveLogout)
+	mux.HandleFunc("/api/auth/status", application.serveAuthStatus)
+	mux.HandleFunc("/api/search", application.requireAuthAPI(application.serveSearch))
+	mux.HandleFunc("/api/key-usage", application.requireAuthAPI(application.serveDailyUsage))
+	mux.HandleFunc("/api/leaderboard", application.requireAuthAPI(application.serveLeaderboard))
 	mux.HandleFunc("/api/self-lookup", application.serveSelfLookup)
 	mux.HandleFunc("/", application.serveAsset)
 	return securityHeaders(mux)
@@ -153,11 +157,18 @@ func (application *handler) serveSearch(response http.ResponseWriter, request *h
 	writeJSON(response, http.StatusOK, keySearchResponse{TargetType: search.TargetKey, Results: keyResults, Page: query.Page(), PageSize: search.PageSize, Total: results.Total})
 }
 
+// protectedPages maps a page path to true when it requires an authenticated
+// session to view. Every other path in serveAsset's switch is public.
+var protectedPages = map[string]bool{
+	"/keys":        true,
+	"/leaderboard": true,
+}
+
 func (application *handler) serveAsset(response http.ResponseWriter, request *http.Request) {
 	name := ""
 	switch request.URL.Path {
-	case "/":
-		name = "index.html"
+	case "/", "/self":
+		name = "self.html"
 	case "/app.css":
 		name = "app.css"
 	case "/app.js":
@@ -170,12 +181,18 @@ func (application *handler) serveAsset(response http.ResponseWriter, request *ht
 		name = "credentials.js"
 	case "/favicon.svg":
 		name = "favicon.svg"
+	case "/keys":
+		name = "index.html"
 	case "/leaderboard":
 		name = "leaderboard.html"
 	case "/leaderboard.js":
 		name = "leaderboard.js"
-	case "/self":
-		name = "self.html"
+	case "/login":
+		name = "login.html"
+	case "/login.js":
+		name = "login.js"
+	case "/nav.js":
+		name = "nav.js"
 	case "/self.js":
 		name = "self.js"
 	case "/theme-init.js":
@@ -189,6 +206,10 @@ func (application *handler) serveAsset(response http.ResponseWriter, request *ht
 	if request.Method != http.MethodGet {
 		response.Header().Set("Allow", http.MethodGet)
 		response.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+	if protectedPages[request.URL.Path] && !application.isAuthenticated(request) {
+		http.Redirect(response, request, "/login?next="+url.QueryEscape(request.URL.Path), http.StatusFound)
 		return
 	}
 	asset, err := web.Read(name)

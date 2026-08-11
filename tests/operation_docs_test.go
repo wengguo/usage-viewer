@@ -39,6 +39,8 @@ func TestOperatorReadmeMatchesRuntimeContract(t *testing.T) {
 		"SUB2API_USAGE_VIEWER_HTTP_WRITE_TIMEOUT",
 		"SUB2API_USAGE_VIEWER_HTTP_IDLE_TIMEOUT",
 		"SUB2API_USAGE_VIEWER_SHUTDOWN_TIMEOUT",
+		"SUB2API_USAGE_VIEWER_AUTH_USERNAME",
+		"SUB2API_USAGE_VIEWER_AUTH_PASSWORD",
 	}
 	for _, key := range environmentKeys {
 		if !strings.Contains(readme, key) {

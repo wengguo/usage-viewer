@@ -5,7 +5,7 @@ import (
 	"errors"
 )
 
-//go:embed index.html app.css app.js credentials.html credentials.css credentials.js favicon.svg leaderboard.html leaderboard.js self.html self.js theme-init.js theme.js
+//go:embed index.html app.css app.js credentials.html credentials.css credentials.js favicon.svg leaderboard.html leaderboard.js login.html login.js nav.js self.html self.js theme-init.js theme.js
 var assets embed.FS
 
 var ErrAssetNotFound = errors.New("web asset not found")
@@ -18,11 +18,11 @@ type Asset struct {
 func Read(name string) (Asset, error) {
 	contentType := ""
 	switch name {
-	case "index.html", "credentials.html", "leaderboard.html", "self.html":
+	case "index.html", "credentials.html", "leaderboard.html", "login.html", "self.html":
 		contentType = "text/html; charset=utf-8"
 	case "app.css", "credentials.css":
 		contentType = "text/css; charset=utf-8"
-	case "app.js", "credentials.js", "leaderboard.js", "self.js", "theme-init.js", "theme.js":
+	case "app.js", "credentials.js", "leaderboard.js", "login.js", "nav.js", "self.js", "theme-init.js", "theme.js":
 		contentType = "text/javascript; charset=utf-8"
 	case "favicon.svg":
 		contentType = "image/svg+xml; charset=utf-8"

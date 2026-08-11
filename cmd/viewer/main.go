@@ -78,6 +78,7 @@ func runWith(
 			return server.Shutdown(ctx)
 		},
 		NewHandler: func(pool *pgxpool.Pool, cfg config.Config) http.Handler {
+			httpapi.ConfigureAuth(cfg.AuthUsername, cfg.AuthPassword)
 			resolver := concurrency.NewResolver(cfg)
 			searchRepository := postgres.NewSearchRepository(pool, cfg.DatabaseQueryTimeout, resolver)
 			dailyRepository := postgres.NewDailyUsageRepository(pool, cfg.DatabaseQueryTimeout)

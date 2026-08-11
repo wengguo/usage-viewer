@@ -26,8 +26,9 @@ func TestDailyUsageEndpointReturnsItems(t *testing.T) {
 		{Date: "2026-08-02", ActualCost: "2.50"},
 	}}
 	application := NewHandlerWithDailyUsage(nil, service)
-	response := serveRequest(application, http.MethodPost, "/api/key-usage",
-		`{"keyId":17,"days":30}`, "application/json", "")
+	cookie := loginCookie(t, application)
+	response := serveRequestWithCookie(application, http.MethodPost, "/api/key-usage",
+		`{"keyId":17,"days":30}`, "application/json", "", cookie)
 	wantBody := `{"items":[{"date":"2026-08-01","actualCost":"1.25"},{"date":"2026-08-02","actualCost":"2.50"}],"days":30}` + "\n"
 	if response.Code != http.StatusOK || response.Body.String() != wantBody || service.calls != 1 {
 		t.Fatalf("status=%d body=%q calls=%d", response.Code, response.Body.String(), service.calls)
@@ -59,7 +60,8 @@ func TestDailyUsageEndpointRejectsInvalidRequests(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			service := &fakeDailyUsageService{}
 			application := NewHandlerWithDailyUsage(nil, service)
-			response := serveRequest(application, tt.method, "/api/key-usage", tt.body, tt.contentType, tt.origin)
+			cookie := loginCookie(t, application)
+			response := serveRequestWithCookie(application, tt.method, "/api/key-usage", tt.body, tt.contentType, tt.origin, cookie)
 			if response.Code != tt.wantStatus || service.calls != 0 {
 				t.Fatalf("status=%d calls=%d body=%q", response.Code, service.calls, response.Body.String())
 			}
@@ -70,11 +72,21 @@ func TestDailyUsageEndpointRejectsInvalidRequests(t *testing.T) {
 	}
 }
 
+func TestDailyUsageEndpointRejectsUnauthenticatedCallers(t *testing.T) {
+	service := &fakeDailyUsageService{}
+	application := NewHandlerWithDailyUsage(nil, service)
+	response := serveRequest(application, http.MethodPost, "/api/key-usage", `{"keyId":1,"days":30}`, "application/json", "")
+	if response.Code != http.StatusUnauthorized || service.calls != 0 {
+		t.Fatalf("status=%d calls=%d body=%q", response.Code, service.calls, response.Body.String())
+	}
+}
+
 func TestDailyUsageEndpointSanitizesServiceFailures(t *testing.T) {
 	service := &fakeDailyUsageService{err: errors.New("daily-db-raw-secret-sentinel")}
 	application := NewHandlerWithDailyUsage(nil, service)
-	response := serveRequest(application, http.MethodPost, "/api/key-usage",
-		`{"keyId":17,"days":30}`, "application/json", "")
+	cookie := loginCookie(t, application)
+	response := serveRequestWithCookie(application, http.MethodPost, "/api/key-usage",
+		`{"keyId":17,"days":30}`, "application/json", "", cookie)
 	if response.Code != http.StatusServiceUnavailable || service.calls != 1 {
 		t.Fatalf("status=%d calls=%d", response.Code, service.calls)
 	}

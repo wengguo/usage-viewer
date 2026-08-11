@@ -31,6 +31,8 @@ const (
 	httpIdleTimeoutKey           = "SUB2API_USAGE_VIEWER_HTTP_IDLE_TIMEOUT"
 	shutdownTimeoutKey           = "SUB2API_USAGE_VIEWER_SHUTDOWN_TIMEOUT"
 	dataDirKey                   = "SUB2API_USAGE_VIEWER_DATA_DIR"
+	authUsernameKey              = "SUB2API_USAGE_VIEWER_AUTH_USERNAME"
+	authPasswordKey              = "SUB2API_USAGE_VIEWER_AUTH_PASSWORD"
 
 	// Redis connection (reuses the Sub2API environment variable names).
 	redisHostKey     = "REDIS_HOST"
@@ -73,6 +75,8 @@ type Config struct {
 	RedisPort                 int
 	RedisPassword             string
 	RedisDB                   int
+	AuthUsername              string
+	AuthPassword              string
 }
 
 func Load(lookup LookupEnv) (Config, error) {
@@ -169,6 +173,9 @@ func Load(lookup LookupEnv) (Config, error) {
 		}
 	}
 
+	authUsername, _ := lookup(authUsernameKey)
+	authPassword, _ := lookup(authPasswordKey)
+
 	return Config{
 		DatabaseURL:               databaseURL,
 		ExpectedDatabaseRole:      databaseRole,
@@ -194,6 +201,8 @@ func Load(lookup LookupEnv) (Config, error) {
 		RedisPort:                 redisPort,
 		RedisPassword:             redisPassword,
 		RedisDB:                   redisDB,
+		AuthUsername:              authUsername,
+		AuthPassword:              authPassword,
 	}, nil
 }
 

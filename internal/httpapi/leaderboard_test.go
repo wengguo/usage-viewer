@@ -26,7 +26,8 @@ func TestLeaderboardEndpointReturnsWindowsWithDefaultLimit(t *testing.T) {
 		search.Window1Day: {{Rank: 1, KeyMasked: "sk-abc***xyz123", Name: "top-key", GroupName: "default", ActualCost: "12.50"}},
 	}}
 	application := NewFullHandler(nil, nil, service, nil)
-	response := serveRequest(application, http.MethodPost, "/api/leaderboard", `{}`, "application/json", "")
+	cookie := loginCookie(t, application)
+	response := serveRequestWithCookie(application, http.MethodPost, "/api/leaderboard", `{}`, "application/json", "", cookie)
 	if response.Code != http.StatusOK || service.calls != 1 || service.limit != 10 {
 		t.Fatalf("status=%d calls=%d limit=%d body=%q", response.Code, service.calls, service.limit, response.Body.String())
 	}
@@ -35,6 +36,15 @@ func TestLeaderboardEndpointReturnsWindowsWithDefaultLimit(t *testing.T) {
 		t.Fatalf("body=%q", response.Body.String())
 	}
 	assertSecurityHeaders(t, response.Result())
+}
+
+func TestLeaderboardEndpointRejectsUnauthenticatedCallers(t *testing.T) {
+	service := &fakeLeaderboardService{}
+	application := NewFullHandler(nil, nil, service, nil)
+	response := serveRequest(application, http.MethodPost, "/api/leaderboard", `{}`, "application/json", "")
+	if response.Code != http.StatusUnauthorized || service.calls != 0 {
+		t.Fatalf("status=%d calls=%d body=%q", response.Code, service.calls, response.Body.String())
+	}
 }
 
 func TestLeaderboardEndpointRejectsInvalidRequests(t *testing.T) {
@@ -58,7 +68,8 @@ func TestLeaderboardEndpointRejectsInvalidRequests(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			service := &fakeLeaderboardService{}
 			application := NewFullHandler(nil, nil, service, nil)
-			response := serveRequest(application, tt.method, "/api/leaderboard", tt.body, tt.contentType, tt.origin)
+			cookie := loginCookie(t, application)
+			response := serveRequestWithCookie(application, tt.method, "/api/leaderboard", tt.body, tt.contentType, tt.origin, cookie)
 			if response.Code != tt.wantStatus {
 				t.Fatalf("status=%d body=%q", response.Code, response.Body.String())
 			}
@@ -68,7 +79,8 @@ func TestLeaderboardEndpointRejectsInvalidRequests(t *testing.T) {
 
 func TestLeaderboardEndpointWithoutServiceIsUnavailable(t *testing.T) {
 	application := NewFullHandler(nil, nil, nil, nil)
-	response := serveRequest(application, http.MethodPost, "/api/leaderboard", `{}`, "application/json", "")
+	cookie := loginCookie(t, application)
+	response := serveRequestWithCookie(application, http.MethodPost, "/api/leaderboard", `{}`, "application/json", "", cookie)
 	if response.Code != http.StatusServiceUnavailable {
 		t.Fatalf("status=%d body=%q", response.Code, response.Body.String())
 	}
