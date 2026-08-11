@@ -235,6 +235,10 @@ func sameOrigin(request *http.Request) bool {
 	if request.TLS != nil {
 		expectedScheme = "https"
 	}
+	// Check X-Forwarded-Proto header when behind a reverse proxy
+	if forwardedProto := request.Header.Get("X-Forwarded-Proto"); forwardedProto != "" {
+		expectedScheme = forwardedProto
+	}
 	return strings.EqualFold(parsed.Scheme, expectedScheme) && strings.EqualFold(parsed.Host, request.Host)
 }
 
