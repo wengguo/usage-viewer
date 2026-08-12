@@ -1,0 +1,10 @@
+{
+  "name": "sub2api-usage-viewer-web-tests",
+  "private": true,
+  "scripts": {
+    "test:charts": "node --test tests/chart_hover_browser_test.mjs"
+  },
+  "devDependencies": {
+    "playwright-core": "1.61.1"
+  }
+}
