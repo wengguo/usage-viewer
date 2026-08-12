@@ -138,6 +138,31 @@ const assertChartHover = async (page, chartSelector, { padL, viewBoxWidth }) => 
   assert.equal(await svg.locator('circle[r="5"]').count(), 0);
 };
 
+const captureHoveredChart = async (page, chartSelector, name, rerenderSelector) => {
+  const screenshotDir = process.env.CHART_SCREENSHOT_DIR;
+  if (!screenshotDir) return;
+  const cases = [
+    { suffix: 'desktop-light', width: 1280, height: 900, dark: false },
+    { suffix: 'mobile-dark', width: 390, height: 844, dark: true },
+  ];
+  for (const item of cases) {
+    await page.setViewportSize({ width: item.width, height: item.height });
+    await page.evaluate(({ dark, rerenderSelector }) => {
+      document.documentElement.classList.toggle('dark', dark);
+      document.querySelector(rerenderSelector).dispatchEvent(new Event('change'));
+    }, { dark: item.dark, rerenderSelector });
+    const svg = page.locator(`${chartSelector} svg`);
+    await svg.waitFor();
+    await svg.scrollIntoViewIfNeeded();
+    const box = await svg.boundingBox();
+    assert.ok(box, 'chart SVG must remain visible for screenshots');
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height * 0.55);
+    const tooltip = svg.locator('[data-chart-tooltip="true"]');
+    assert.equal(await tooltip.getAttribute('visibility'), 'visible', JSON.stringify({ name, item, box }));
+    await page.screenshot({ path: join(screenshotDir, `${name}-${item.suffix}.png`), fullPage: true });
+  }
+};
+
 test('自助查询用量图悬停显示最近点的横纵坐标明细', async () => {
   const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
   try {
@@ -146,6 +171,7 @@ test('自助查询用量图悬停显示最近点的横纵坐标明细', async ()
     await page.locator('#self-form').evaluate((form) => form.requestSubmit());
     await page.locator('#self-card:not([hidden])').waitFor();
     await assertChartHover(page, '#self-chart-wrap', { padL: 48, viewBoxWidth: 640 });
+    await captureHoveredChart(page, '#self-chart-wrap', 'self-chart', '#self-chart-days');
   } finally {
     await page.close();
   }
@@ -158,6 +184,7 @@ test('Key 用量图悬停显示最近点的横纵坐标明细', async () => {
     await page.getByRole('button', { name: '每日用量' }).first().click();
     await page.locator('#usage-dialog[open]').waitFor();
     await assertChartHover(page, '#chart-wrap', { padL: 56, viewBoxWidth: 760 });
+    await captureHoveredChart(page, '#chart-wrap', 'key-chart', '#dialog-days');
   } finally {
     await page.close();
   }
