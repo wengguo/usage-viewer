@@ -237,7 +237,9 @@
 
     // Hover tooltip showing the date (x-axis) and cost (y-axis).
     const tooltip = document.createElementNS(svgNs, 'g');
+    tooltip.dataset.chartTooltip = 'true';
     tooltip.setAttribute('visibility', 'hidden');
+    tooltip.setAttribute('pointer-events', 'none');
     const tooltipBg = document.createElementNS(svgNs, 'rect');
     tooltipBg.setAttribute('rx', '4');
     tooltipBg.setAttribute('fill', palette.tooltipBg);
