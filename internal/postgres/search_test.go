@@ -57,10 +57,10 @@ func TestCostSearchSQLOrdersNumericallyWithStableIDTieBreak(t *testing.T) {
 		statement string
 		order     string
 	}{
-		"today descending":  {keyBrowseByTodayCostDescSQL, "order by today_cost desc, id desc"},
-		"today ascending":   {keyTextByTodayCostAscSQL, "order by today_cost asc, id desc"},
-		"thirty descending": {keyBrowseByTotal30dCostDescSQL, "order by total_30d_cost desc, id desc"},
-		"thirty ascending":  {keyTextByTotal30dCostAscSQL, "order by total_30d_cost asc, id desc"},
+		"today descending":  {keyBrowseByTodayCostDescSQL, "order by key_costs.today_cost desc, id desc"},
+		"today ascending":   {keyTextByTodayCostAscSQL, "order by key_costs.today_cost asc, id desc"},
+		"thirty descending": {keyBrowseByTotal30dCostDescSQL, "order by key_costs.total_30d_cost desc, id desc"},
+		"thirty ascending":  {keyTextByTotal30dCostAscSQL, "order by key_costs.total_30d_cost asc, id desc"},
 	} {
 		normalized := strings.ToLower(test.statement)
 		if !strings.Contains(normalized, test.order) || strings.Contains(normalized, "order by today_cost::text") || strings.Contains(normalized, "order by total_30d_cost::text") {

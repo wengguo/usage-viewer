@@ -1,3 +1,4 @@
 /dist/
 /.omc/
 /.worktrees/
+/node_modules/

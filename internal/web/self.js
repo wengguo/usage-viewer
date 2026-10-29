@@ -113,8 +113,8 @@
   };
 
   const chartPalette = () => document.documentElement.classList.contains('dark')
-    ? { grid: '#334155', axisText: '#94a3b8', line: '#2dd4bf', point: '#2dd4bf' }
-    : { grid: '#e9eaeb', axisText: '#52606d', line: '#0f766e', point: '#0f766e' };
+    ? { grid: '#334155', axisText: '#94a3b8', line: '#2dd4bf', point: '#2dd4bf', tooltipBg: '#0f172a', tooltipDate: '#5eead4', tooltipCost: '#fff', hoverPoint: '#f87171' }
+    : { grid: '#e9eaeb', axisText: '#52606d', line: '#0f766e', point: '#0f766e', tooltipBg: '#17202a', tooltipDate: '#e7f5f2', tooltipCost: '#fff', hoverPoint: '#b42318' };
 
   const renderChart = (items) => {
     chartWrap.textContent = '';
@@ -182,6 +182,7 @@
     polyline.setAttribute('stroke-linecap', 'round');
     svg.appendChild(polyline);
 
+    const circles = [];
     items.forEach((item, i) => {
       const circle = document.createElementNS(svgNs, 'circle');
       circle.setAttribute('cx', String(x(i)));
@@ -189,7 +190,84 @@
       circle.setAttribute('r', '3');
       circle.setAttribute('fill', palette.point);
       svg.appendChild(circle);
+      circles.push(circle);
     });
+
+    const tooltip = document.createElementNS(svgNs, 'g');
+    tooltip.dataset.chartTooltip = 'true';
+    tooltip.setAttribute('visibility', 'hidden');
+    tooltip.setAttribute('pointer-events', 'none');
+    const tooltipBg = document.createElementNS(svgNs, 'rect');
+    tooltipBg.setAttribute('rx', '4');
+    tooltipBg.setAttribute('fill', palette.tooltipBg);
+    const tooltipDate = document.createElementNS(svgNs, 'text');
+    tooltipDate.setAttribute('font-size', '10');
+    tooltipDate.setAttribute('fill', palette.tooltipDate);
+    const tooltipCost = document.createElementNS(svgNs, 'text');
+    tooltipCost.setAttribute('font-size', '11');
+    tooltipCost.setAttribute('font-weight', '600');
+    tooltipCost.setAttribute('fill', palette.tooltipCost);
+    tooltip.appendChild(tooltipBg);
+    tooltip.appendChild(tooltipDate);
+    tooltip.appendChild(tooltipCost);
+    svg.appendChild(tooltip);
+
+    let activeIndex = -1;
+    const showTooltip = (index) => {
+      if (activeIndex === index) return;
+      if (activeIndex >= 0) {
+        circles[activeIndex].setAttribute('r', '3');
+        circles[activeIndex].setAttribute('fill', palette.point);
+      }
+      activeIndex = index;
+      const px = x(index);
+      const py = y(+items[index].actualCost || 0);
+      circles[index].setAttribute('r', '5');
+      circles[index].setAttribute('fill', palette.hoverPoint);
+      tooltipDate.textContent = items[index].date;
+      tooltipCost.textContent = `$${(+items[index].actualCost || 0).toFixed(4)}`;
+      const tw = 112;
+      const th = 32;
+      const tx = Math.min(Math.max(px - tw / 2, padL), width - padR - tw);
+      const ty = py - th - 8 < padT ? py + 12 : py - th - 8;
+      tooltipBg.setAttribute('x', String(tx));
+      tooltipBg.setAttribute('y', String(ty));
+      tooltipBg.setAttribute('width', String(tw));
+      tooltipBg.setAttribute('height', String(th));
+      tooltipDate.setAttribute('x', String(tx + tw / 2));
+      tooltipDate.setAttribute('y', String(ty + 12));
+      tooltipDate.setAttribute('text-anchor', 'middle');
+      tooltipCost.setAttribute('x', String(tx + tw / 2));
+      tooltipCost.setAttribute('y', String(ty + 26));
+      tooltipCost.setAttribute('text-anchor', 'middle');
+      tooltip.setAttribute('visibility', 'visible');
+    };
+    const hideTooltip = () => {
+      if (activeIndex >= 0) {
+        circles[activeIndex].setAttribute('r', '3');
+        circles[activeIndex].setAttribute('fill', palette.point);
+      }
+      activeIndex = -1;
+      tooltip.setAttribute('visibility', 'hidden');
+    };
+
+    svg.addEventListener('mousemove', (event) => {
+      const rect = svg.getBoundingClientRect();
+      const vx = ((event.clientX - rect.left) / rect.width) * width;
+      const vy = ((event.clientY - rect.top) / rect.height) * height;
+      if (vx < padL || vx > width - padR || vy < padT || vy > height - padB) {
+        hideTooltip();
+        return;
+      }
+      let nearest = 0;
+      let best = Infinity;
+      items.forEach((_, i) => {
+        const distance = Math.abs(x(i) - vx);
+        if (distance < best) { best = distance; nearest = i; }
+      });
+      showTooltip(nearest);
+    });
+    svg.addEventListener('mouseleave', hideTooltip);
 
     chartWrap.appendChild(svg);
   };

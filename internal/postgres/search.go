@@ -93,17 +93,17 @@ FROM key_costs
 const (
 	keyBrowseByIDDescSQL           = keyBrowseSQLPrefix + "ORDER BY id DESC LIMIT 20 OFFSET $4"
 	keyBrowseByIDAscSQL            = keyBrowseSQLPrefix + "ORDER BY id ASC LIMIT 20 OFFSET $4"
-	keyBrowseByTodayCostDescSQL    = keyBrowseSQLPrefix + "ORDER BY today_cost DESC, id DESC LIMIT 20 OFFSET $4"
-	keyBrowseByTodayCostAscSQL     = keyBrowseSQLPrefix + "ORDER BY today_cost ASC, id DESC LIMIT 20 OFFSET $4"
-	keyBrowseByTotal30dCostDescSQL = keyBrowseSQLPrefix + "ORDER BY total_30d_cost DESC, id DESC LIMIT 20 OFFSET $4"
-	keyBrowseByTotal30dCostAscSQL  = keyBrowseSQLPrefix + "ORDER BY total_30d_cost ASC, id DESC LIMIT 20 OFFSET $4"
+	keyBrowseByTodayCostDescSQL    = keyBrowseSQLPrefix + "ORDER BY key_costs.today_cost DESC, id DESC LIMIT 20 OFFSET $4"
+	keyBrowseByTodayCostAscSQL     = keyBrowseSQLPrefix + "ORDER BY key_costs.today_cost ASC, id DESC LIMIT 20 OFFSET $4"
+	keyBrowseByTotal30dCostDescSQL = keyBrowseSQLPrefix + "ORDER BY key_costs.total_30d_cost DESC, id DESC LIMIT 20 OFFSET $4"
+	keyBrowseByTotal30dCostAscSQL  = keyBrowseSQLPrefix + "ORDER BY key_costs.total_30d_cost ASC, id DESC LIMIT 20 OFFSET $4"
 
 	keyByTextSQL                 = keyTextSQLPrefix + "ORDER BY id DESC LIMIT 20 OFFSET $5"
 	keyTextByIDAscSQL            = keyTextSQLPrefix + "ORDER BY id ASC LIMIT 20 OFFSET $5"
-	keyTextByTodayCostDescSQL    = keyTextSQLPrefix + "ORDER BY today_cost DESC, id DESC LIMIT 20 OFFSET $5"
-	keyTextByTodayCostAscSQL     = keyTextSQLPrefix + "ORDER BY today_cost ASC, id DESC LIMIT 20 OFFSET $5"
-	keyTextByTotal30dCostDescSQL = keyTextSQLPrefix + "ORDER BY total_30d_cost DESC, id DESC LIMIT 20 OFFSET $5"
-	keyTextByTotal30dCostAscSQL  = keyTextSQLPrefix + "ORDER BY total_30d_cost ASC, id DESC LIMIT 20 OFFSET $5"
+	keyTextByTodayCostDescSQL    = keyTextSQLPrefix + "ORDER BY key_costs.today_cost DESC, id DESC LIMIT 20 OFFSET $5"
+	keyTextByTodayCostAscSQL     = keyTextSQLPrefix + "ORDER BY key_costs.today_cost ASC, id DESC LIMIT 20 OFFSET $5"
+	keyTextByTotal30dCostDescSQL = keyTextSQLPrefix + "ORDER BY key_costs.total_30d_cost DESC, id DESC LIMIT 20 OFFSET $5"
+	keyTextByTotal30dCostAscSQL  = keyTextSQLPrefix + "ORDER BY key_costs.total_30d_cost ASC, id DESC LIMIT 20 OFFSET $5"
 )
 
 const keyCountBrowseSQL = `
