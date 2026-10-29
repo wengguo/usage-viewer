@@ -130,6 +130,28 @@ func TestRoleGuideMatchesCurrentColumnContract(t *testing.T) {
 
 }
 
+func TestLeaderboardIndexRunbookUsesConcurrentCoveringIndex(t *testing.T) {
+	runbook := strings.ToLower(readOperationFile(t, "../docs/leaderboard-index.sql"))
+
+	for _, required := range []string{
+		"create index concurrently if not exists idx_usage_logs_leaderboard_cover",
+		"on public.usage_logs (created_at, api_key_id)",
+		"include (actual_cost)",
+		"analyze public.usage_logs",
+		"pg_stat_progress_create_index",
+		"drop index concurrently if exists public.idx_usage_logs_leaderboard_cover",
+	} {
+		if !strings.Contains(runbook, required) {
+			t.Errorf("leaderboard index runbook missing %q", required)
+		}
+	}
+	for _, forbidden := range []string{"begin;", "start transaction"} {
+		if strings.Contains(runbook, forbidden) {
+			t.Errorf("leaderboard index runbook contains explicit transaction command %q", forbidden)
+		}
+	}
+}
+
 func readOperationFile(t *testing.T, path string) string {
 	t.Helper()
 	content, err := os.ReadFile(path)
