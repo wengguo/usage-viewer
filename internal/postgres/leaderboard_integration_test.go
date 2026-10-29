@@ -18,17 +18,21 @@ func TestLeaderboardRepositoryRanksByWindowAndExcludesDeleted(t *testing.T) {
 		`INSERT INTO public.api_keys (id, key, name, group_id, quota, quota_used, status, created_at, deleted_at) VALUES
             (9701, 'sk-leaderboard-alpha-01', 'Leaderboard Alpha', 9601, 100, 0, 'active', pg_catalog.now(), NULL),
             (9702, 'sk-leaderboard-beta-002', 'Leaderboard Beta', 9601, 100, 0, 'active', pg_catalog.now(), NULL),
-            (9703, 'sk-leaderboard-deleted1', 'Leaderboard Deleted', 9601, 100, 0, 'active', pg_catalog.now(), pg_catalog.now())`,
+            (9703, 'sk-leaderboard-deleted1', 'Leaderboard Deleted', 9601, 100, 0, 'active', pg_catalog.now(), pg_catalog.now()),
+            (9704, 'sk-leaderboard-tie-0004', 'Leaderboard Tie', 9601, 100, 0, 'active', pg_catalog.now(), NULL)`,
 		`INSERT INTO public.usage_logs (id, api_key_id, actual_cost, created_at) VALUES
             (9801, 9701, 5.00, pg_catalog.now()),
             (9802, 9701, 3.00, pg_catalog.now() - interval '2 days'),
-            (9803, 9702, 10.00, pg_catalog.now()),
-            (9804, 9703, 999.00, pg_catalog.now())`,
+            (9803, 9701, 4.00, pg_catalog.now() - interval '6 days'),
+            (9804, 9701, 2.00, pg_catalog.now() - interval '29 days'),
+            (9805, 9702, 10.00, pg_catalog.now()),
+            (9806, 9703, 999.00, pg_catalog.now()),
+            (9807, 9704, 10.00, pg_catalog.now())`,
 	)
 	t.Cleanup(func() {
 		harness.execAdmin(t,
-			`DELETE FROM public.usage_logs WHERE id IN (9801, 9802, 9803, 9804)`,
-			`DELETE FROM public.api_keys WHERE id IN (9701, 9702, 9703)`,
+			`DELETE FROM public.usage_logs WHERE id IN (9801, 9802, 9803, 9804, 9805, 9806, 9807)`,
+			`DELETE FROM public.api_keys WHERE id IN (9701, 9702, 9703, 9704)`,
 			`DELETE FROM public.groups WHERE id = 9601`,
 		)
 	})
@@ -43,28 +47,42 @@ func TestLeaderboardRepositoryRanksByWindowAndExcludesDeleted(t *testing.T) {
 	windows, err := repository.Top(context.Background(), 10)
 	require.NoError(t, err)
 
-	// Alpha: $5 today + $3 two days ago = $8 total. Beta: $10 today only.
-	// Deleted key: $999, must never surface in any window.
-	oneDay := windows[search.Window1Day]
-	require.Len(t, oneDay, 2, "1-day window excludes the 2-day-old usage row and the deleted key")
-	require.Equal(t, "Leaderboard Beta", oneDay[0].Name)
-	require.Equal(t, "10.00", oneDay[0].ActualCost)
-	require.Equal(t, "Leaderboard Alpha", oneDay[1].Name)
-	require.Equal(t, "5.00", oneDay[1].ActualCost)
-	require.NotContains(t, oneDay[0].KeyMasked, "leaderboard")
+	expected := map[search.LeaderboardWindow]struct {
+		names []string
+		costs []string
+	}{
+		search.Window1Day:  {names: []string{"Leaderboard Tie", "Leaderboard Beta", "Leaderboard Alpha"}, costs: []string{"10.00", "10.00", "5.00"}},
+		search.Window3Day:  {names: []string{"Leaderboard Tie", "Leaderboard Beta", "Leaderboard Alpha"}, costs: []string{"10.00", "10.00", "8.00"}},
+		search.Window7Day:  {names: []string{"Leaderboard Alpha", "Leaderboard Tie", "Leaderboard Beta"}, costs: []string{"12.00", "10.00", "10.00"}},
+		search.Window30Day: {names: []string{"Leaderboard Alpha", "Leaderboard Tie", "Leaderboard Beta"}, costs: []string{"14.00", "10.00", "10.00"}},
+	}
 
-	// 3-day window pulls in alpha's second usage row, but beta's single $10
-	// row still outranks alpha's summed $8 — rank order does not flip.
-	threeDay := windows[search.Window3Day]
-	require.Len(t, threeDay, 2)
-	require.Equal(t, "Leaderboard Beta", threeDay[0].Name, "beta's single $10 row still outranks alpha's summed $8")
-	require.Equal(t, "10.00", threeDay[0].ActualCost)
-	require.Equal(t, "Leaderboard Alpha", threeDay[1].Name)
-	require.Equal(t, "8.00", threeDay[1].ActualCost, "3-day window sums both alpha usage rows (5.00 + 3.00)")
-
-	for _, window := range windows {
-		for _, entry := range window {
+	for _, window := range search.AllLeaderboardWindows() {
+		entries, ok := windows[window]
+		require.True(t, ok, "window %q must be present", window)
+		require.NotNil(t, entries, "window %q must return a non-nil slice", window)
+		require.Equal(t, expected[window].names, leaderboardNames(entries), "window %q names", window)
+		require.Equal(t, expected[window].costs, leaderboardCosts(entries), "window %q costs", window)
+		for index, entry := range entries {
+			require.Equal(t, index+1, entry.Rank, "window %q rank", window)
+			require.NotContains(t, entry.KeyMasked, "leaderboard", "raw key data must stay masked")
 			require.NotEqual(t, "Leaderboard Deleted", entry.Name, "deleted key must never appear")
 		}
 	}
+}
+
+func leaderboardNames(entries []search.LeaderboardEntry) []string {
+	names := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		names = append(names, entry.Name)
+	}
+	return names
+}
+
+func leaderboardCosts(entries []search.LeaderboardEntry) []string {
+	costs := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		costs = append(costs, entry.ActualCost)
+	}
+	return costs
 }

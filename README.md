@@ -24,6 +24,16 @@
 
 数据库可用共享 Sub2API 应用账号，或专用只读角色（见下方）。
 
+### 排行榜性能索引
+
+排行榜会聚合最近 30 天的 `usage_logs`。生产库建议由表所有者或 DBA 执行覆盖索引运行手册：
+
+```sh
+psql "$DATABASE_URL" -f docs/leaderboard-index.sql
+```
+
+脚本会先列出已有索引，再通过 `CREATE INDEX CONCURRENTLY` 创建 `idx_usage_logs_leaderboard_cover`，随后更新表统计信息；其中也包含构建进度查询和单独执行的并发回滚命令。执行时须启用 psql 自动提交，不要放入显式事务。viewer 只读运行，不会自行创建或删除数据库对象。
+
 ## 快速开始（本地二进制）
 
 ```sh
