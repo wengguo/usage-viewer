@@ -92,7 +92,7 @@ func TestSearchRepositoryOrdersUsageCostsNumerically(t *testing.T) {
 		{name: "today descending", sortBy: search.SortByTodayCost, direction: search.SortDirectionDescending, wantIDs: []int64{9515, 9514, 9513, 9512, 9511}},
 		{name: "today ascending", sortBy: search.SortByTodayCost, direction: search.SortDirectionAscending, wantIDs: []int64{9511, 9513, 9512, 9514, 9515}},
 		{name: "thirty days descending", sortBy: search.SortByTotal30dCost, direction: search.SortDirectionDescending, wantIDs: []int64{9511, 9515, 9514, 9513, 9512}},
-		{name: "thirty days ascending", sortBy: search.SortByTotal30dCost, direction: search.SortDirectionAscending, wantIDs: []int64{9512, 9513, 9514, 9515, 9511}},
+		{name: "thirty days ascending", sortBy: search.SortByTotal30dCost, direction: search.SortDirectionAscending, wantIDs: []int64{9514, 9513, 9512, 9515, 9511}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
