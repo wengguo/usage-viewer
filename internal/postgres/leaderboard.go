@@ -11,30 +11,58 @@ import (
 	"github.com/Wei-Shaw/sub2api/usage-viewer/internal/search"
 )
 
-// leaderboardSQLPrefix computes the total actual_cost per non-deleted key
-// within a window whose start bound is bound as $1, ranked highest cost
-// first with a stable id-descending tiebreak. $2 is the caller-supplied
-// Top N limit. All four windows share this exact statement — only the
-// start bound they're called with differs.
-const leaderboardSQLPrefix = `
-SELECT api_key.id, api_key.key, api_key.name, COALESCE(grp.name, '')::text,
-       pg_catalog.sum(ul.actual_cost)::text
-FROM public.usage_logs AS ul
-JOIN public.api_keys AS api_key ON api_key.id = ul.api_key_id
-LEFT JOIN public.groups AS grp ON grp.id = api_key.group_id
-WHERE ul.created_at >= $1
-  AND api_key.deleted_at IS NULL
-GROUP BY api_key.id, api_key.key, api_key.name, grp.name
-ORDER BY pg_catalog.sum(ul.actual_cost) DESC, api_key.id DESC
-LIMIT $2
+// leaderboardSQL scans the 30-day range once, computes all four window totals
+// per key, and ranks each window independently. The four UTC window starts are
+// bound as $1 through $4; $5 is the validated Top N limit.
+const leaderboardSQL = `
+WITH key_costs AS MATERIALIZED (
+    SELECT
+        ul.api_key_id,
+        pg_catalog.sum(ul.actual_cost)
+            FILTER (WHERE ul.created_at >= $1) AS cost_1d,
+        pg_catalog.sum(ul.actual_cost)
+            FILTER (WHERE ul.created_at >= $2) AS cost_3d,
+        pg_catalog.sum(ul.actual_cost)
+            FILTER (WHERE ul.created_at >= $3) AS cost_7d,
+        pg_catalog.sum(ul.actual_cost) AS cost_30d
+    FROM public.usage_logs AS ul
+    WHERE ul.created_at >= $4
+    GROUP BY ul.api_key_id
+),
+window_costs AS (
+    SELECT key_costs.api_key_id, costs.window_name, costs.actual_cost
+    FROM key_costs
+    CROSS JOIN LATERAL (
+        VALUES
+            ('1d', key_costs.cost_1d),
+            ('3d', key_costs.cost_3d),
+            ('7d', key_costs.cost_7d),
+            ('30d', key_costs.cost_30d)
+    ) AS costs(window_name, actual_cost)
+    WHERE costs.actual_cost IS NOT NULL
+),
+ranked AS (
+    SELECT
+        window_costs.window_name,
+        api_key.id,
+        api_key.key,
+        api_key.name,
+        COALESCE(grp.name, '')::text AS group_name,
+        window_costs.actual_cost,
+        pg_catalog.row_number() OVER (
+            PARTITION BY window_costs.window_name
+            ORDER BY window_costs.actual_cost DESC, api_key.id DESC
+        ) AS rank
+    FROM window_costs
+    JOIN public.api_keys AS api_key ON api_key.id = window_costs.api_key_id
+    LEFT JOIN public.groups AS grp ON grp.id = api_key.group_id
+    WHERE api_key.deleted_at IS NULL
+)
+SELECT window_name, rank, id, key, name, group_name, actual_cost::text
+FROM ranked
+WHERE rank <= $5
+ORDER BY window_name, rank
 `
-
-var leaderboardSQLByWindow = map[search.LeaderboardWindow]string{
-	search.Window1Day:  leaderboardSQLPrefix,
-	search.Window3Day:  leaderboardSQLPrefix,
-	search.Window7Day:  leaderboardSQLPrefix,
-	search.Window30Day: leaderboardSQLPrefix,
-}
 
 var ErrLeaderboardUnavailable = errors.New("leaderboard is temporarily unavailable")
 
@@ -60,17 +88,11 @@ func (repository *LeaderboardRepository) Top(ctx context.Context, limit int) (ma
 	}
 
 	now := time.Now().UTC()
-	results := make(map[search.LeaderboardWindow][]search.LeaderboardEntry, len(leaderboardSQLByWindow))
+	var results map[search.LeaderboardWindow][]search.LeaderboardEntry
 	err = withReadOnlyTx(ctx, repository.pool, repository.timeout, func(queryCtx context.Context, tx pgx.Tx) error {
-		for _, window := range search.AllLeaderboardWindows() {
-			start := windowStart(now, window)
-			entries, err := queryLeaderboardWindow(queryCtx, tx, window, start, normalizedLimit)
-			if err != nil {
-				return err
-			}
-			results[window] = entries
-		}
-		return nil
+		var queryErr error
+		results, queryErr = queryLeaderboard(queryCtx, tx, now, normalizedLimit)
+		return queryErr
 	})
 	if err != nil {
 		return nil, ErrLeaderboardUnavailable
@@ -87,23 +109,40 @@ func windowStart(now time.Time, window search.LeaderboardWindow) time.Time {
 	return now.Truncate(24*time.Hour).AddDate(0, 0, -(days - 1))
 }
 
-func queryLeaderboardWindow(ctx context.Context, tx pgx.Tx, window search.LeaderboardWindow, start time.Time, limit int) ([]search.LeaderboardEntry, error) {
-	statement := leaderboardSQLByWindow[window]
-	rows, err := tx.Query(ctx, statement, start, limit)
+func queryLeaderboard(ctx context.Context, tx pgx.Tx, now time.Time, limit int) (map[search.LeaderboardWindow][]search.LeaderboardEntry, error) {
+	results := make(map[search.LeaderboardWindow][]search.LeaderboardEntry, len(search.AllLeaderboardWindows()))
+	for _, window := range search.AllLeaderboardWindows() {
+		results[window] = []search.LeaderboardEntry{}
+	}
+
+	rows, err := tx.Query(
+		ctx,
+		leaderboardSQL,
+		windowStart(now, search.Window1Day),
+		windowStart(now, search.Window3Day),
+		windowStart(now, search.Window7Day),
+		windowStart(now, search.Window30Day),
+		limit,
+	)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	entries := make([]search.LeaderboardEntry, 0, limit)
 	for rows.Next() {
+		var windowText string
+		var rank int64
 		var id int64
 		var rawKey, name, groupName, actualCost string
-		if err := rows.Scan(&id, &rawKey, &name, &groupName, &actualCost); err != nil {
+		if err := rows.Scan(&windowText, &rank, &id, &rawKey, &name, &groupName, &actualCost); err != nil {
 			return nil, err
 		}
-		entries = append(entries, search.LeaderboardEntry{
-			Rank:       len(entries) + 1,
+		window := search.LeaderboardWindow(windowText)
+		if search.WindowDays(window) == 0 || rank < 1 || rank > int64(limit) {
+			return nil, errors.New("leaderboard query returned invalid ranking data")
+		}
+		results[window] = append(results[window], search.LeaderboardEntry{
+			Rank:       int(rank),
 			KeyMasked:  search.MaskKey(rawKey),
 			Name:       name,
 			GroupName:  groupName,
@@ -113,5 +152,5 @@ func queryLeaderboardWindow(ctx context.Context, tx pgx.Tx, window search.Leader
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
-	return entries, nil
+	return results, nil
 }

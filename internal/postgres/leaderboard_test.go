@@ -6,8 +6,6 @@ import (
 	"strings"
 	"testing"
 	"time"
-
-	"github.com/Wei-Shaw/sub2api/usage-viewer/internal/search"
 )
 
 func TestLeaderboardRepositoryRejectsInvalidDependencies(t *testing.T) {
@@ -31,31 +29,32 @@ func TestLeaderboardRepositoryRejectsInvalidDependencies(t *testing.T) {
 	}
 }
 
-func TestLeaderboardWindowSQLIsStaticBoundedAndExcludesDeletedKeys(t *testing.T) {
-	for _, window := range search.AllLeaderboardWindows() {
-		statement, ok := leaderboardSQLByWindow[window]
-		if !ok {
-			t.Fatalf("no SQL registered for window %q", window)
+func TestLeaderboardSQLScansUsageOnceAndRanksAllWindows(t *testing.T) {
+	normalized := strings.ToLower(leaderboardSQL)
+	for _, required := range []string{
+		"with key_costs as materialized",
+		"from public.usage_logs",
+		"filter (where ul.created_at >= $1)",
+		"filter (where ul.created_at >= $2)",
+		"filter (where ul.created_at >= $3)",
+		"where ul.created_at >= $4",
+		"cross join lateral",
+		"partition by window_costs.window_name",
+		"join public.api_keys",
+		"left join public.groups",
+		"api_key.deleted_at is null",
+		"rank <= $5",
+	} {
+		if !strings.Contains(normalized, required) {
+			t.Fatalf("leaderboard SQL missing %q: %s", required, leaderboardSQL)
 		}
-		normalized := strings.ToLower(statement)
-		for _, required := range []string{
-			"select ",
-			"from public.usage_logs",
-			"join public.api_keys",
-			"left join public.groups",
-			"api_key.deleted_at is null",
-			"group by",
-			"order by",
-			"limit $",
-		} {
-			if !strings.Contains(normalized, required) {
-				t.Fatalf("window %q SQL missing %q: %s", window, required, statement)
-			}
-		}
-		for _, forbidden := range []string{"select *", " insert ", " update ", " delete "} {
-			if strings.Contains(" "+normalized+" ", forbidden) {
-				t.Fatalf("window %q SQL contains forbidden fragment %q", window, forbidden)
-			}
+	}
+	if got := strings.Count(normalized, "from public.usage_logs"); got != 1 {
+		t.Fatalf("usage_logs scan count = %d, want 1: %s", got, leaderboardSQL)
+	}
+	for _, forbidden := range []string{"select *", " insert ", " update ", " delete "} {
+		if strings.Contains(" "+normalized+" ", forbidden) {
+			t.Fatalf("leaderboard SQL contains forbidden fragment %q", forbidden)
 		}
 	}
 }
